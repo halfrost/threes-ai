@@ -1,0 +1,21 @@
+{
+  "meteor": {},
+  "dependencies": {
+    "basePackages": {
+      "jquery-ui": {},
+      "GAnalytics": {}
+    },
+    "packages": {
+      "jquery-ui": {
+        "git": "https://github.com/TimHeckel/meteor-jquery-ui.git",
+        "tag": "v1.9.2",
+        "commit": "c437d45edcf1367df8d5ffa8bad2867758030bd2"
+      },
+      "GAnalytics": {
+        "git": "https://github.com/datariot/meteor-ganalytics.git",
+        "tag": "v0.1.1",
+        "commit": "91b19d37687bb2cd7976fb43b482143a53509d7e"
+      }
+    }
+  }
+}
