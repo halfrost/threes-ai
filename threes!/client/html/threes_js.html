@@ -1,0 +1,93 @@
+<head>
+  <title>Threes JS</title>
+</head>
+
+<body>
+  {{> main}}
+
+  <audio loop id="music-audio" preload="auto">
+      <source src="threes_bees_knees.mp3" type="audio/mp3" />
+  </audio>
+</body>
+
+<template name="main">
+  <!-- ??? -->
+  <div id="fb-root"></div>
+
+  {{> header}}
+  {{> game}}
+  {{> footer}}
+</template>
+
+<!-- MAIN COMPONENTS -->
+
+<template name="header">
+
+  <div class="header">
+    <h1>Threes-<span class="blue">A</span><span class="red">I</span></h1>
+    <h2>A tiny browser clone of <a href="http://www.threesgame.com" target="new">Threes!</a></h2>
+    <!-- <p>
+      Use your arrow keys (&larr; &uarr; &rarr; &darr;) to move.
+      <br/><a href="" id="music-control">Play</a> the soundtrack or <a href="http://music.biggiantcircles.com/album/threes-ost" target="new">download</a> it!
+    </p> -->
+  </div>
+</template>
+
+<template name="game">
+  <div class="game">
+    <div class="board">
+      {{#times 4}}
+      <div class="row">
+        {{#times 4}}
+          <div class="tile-container"></div>
+        {{/times}}
+      </div>
+      {{/times}}
+    </div>
+    <div class="next">
+      <div class="title">Next</div>
+      <div class="tile"></div>
+    </div>
+
+    <div class="control">
+        <p>
+          Use your arrow keys (&larr; &uarr; &rarr; &darr;) to move.
+          <br/><a href="" id="music-control">Play</a> the soundtrack or <a href="http://music.biggiantcircles.com/album/threes-ost" target="new">download</a> it!
+        </p>
+    </div>
+
+    <div class="new" id="new-game">
+      New game
+    </div>
+
+    <div class="hint" id="gamehint">
+      Hint
+    </div>
+
+  </div>
+</template>
+
+<template name="footer">
+  <div class="footer">
+    <a href="http://www.threesgame.com">Threes!</a> is a game for iOS by <a href="http://twitter.com/ashervo" target="new">Asher</a>, <a href="http://twitter.com/aeiowu" target="new">Greg</a>, and <a href="http://twitter.com/biggiantcircles">Jimmy</a>.
+    <br/><br/>Threes-AI develop by <a href="https://github.com/halfrost" target="new">@halfrost</a>.
+  </div>
+</template>
+
+<!-- INDIVIDUAL TILES -->
+
+<template name="tile">
+  <div class="tile" data-coords="{{ row }}{{ col }}">{{ tile }}</div>
+</template>
+
+<!-- END GAME -->
+
+<template name="endgame">
+  <div class="endgame">
+    <div class="score-intro">Thanks for playing! <strong>^____^</strong> Your score is</div>
+    <div class="score">{{ score }}</div>
+    <a class="btn twitter-btn" href="https://twitter.com/share?text={{ tweet }}" target="new">Tweet</a>
+    <a class="btn facebook-btn" href="" id="share-facebook" target="new">Facebook</a>
+    </div>
+  </div>
+</template>

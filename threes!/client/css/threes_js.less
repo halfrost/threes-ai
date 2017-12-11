@@ -1,0 +1,309 @@
+@blue: #66CCFF;
+@dark-green: #B6D9D9;
+@gray: #666E80;
+@light-gray: #FAFAFA;
+@light-green: #D0E6DF;
+@red: #FF6680;
+@yellow: #FFCC66;
+
+@import url(http://fonts.googleapis.com/css?family=Nunito:300,400,700);
+
+.border-radius(@radius: 10px) {
+  -webkit-border-radius: @radius;
+  -moz-border-radius: @radius;
+  border-radius: @radius;
+}
+
+.border-box {
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+
+.transition(@transition: all 0.3s ease) {
+  transition: @transition;
+  -webkit-transition: @transition;
+}
+
+html, body {
+  background: @light-gray;
+  color: #777E8C;
+  font-family: "Nunito", sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: darken(@dark-green, 10%);
+  text-decoration: none;
+
+  &:hover {
+    color: darken(@dark-green, 20%);
+  }
+}
+
+::selection {
+  background: @yellow;
+  color: @gray;
+}
+
+.header {
+  margin: 30px 0;
+  text-align: center;
+
+  h1 {
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin: 0;
+    text-transform: uppercase;
+
+    .red { color: @red; }
+    .blue { color: @blue; }
+  }
+
+  h2 {
+    font-weight: 400;
+    margin: 0;
+  }
+
+  p {
+    font-weight: 300;
+    margin: 20px 0 0;
+
+    a {
+      font-weight: 400;
+    }
+  }
+}
+
+/******************** MAIN COMPONENTS ****************************************/
+
+.game {
+  margin: 0 auto;
+  max-width: 400px;
+  position: relative;
+
+  .board {
+    .border-radius;
+    background: @light-green;
+    overflow: hidden;
+    padding: 12px 16px;
+
+    .row {
+      overflow: hidden;
+      text-align: center;
+
+      .tile-container {
+        .border-radius;
+        background: @dark-green;
+        box-shadow: 0px 8px @dark-green;
+        float: left;
+        height: 110px;
+        margin: 10px 6px;
+        width: 80px;
+      }
+    }
+  }
+
+  .next {
+    .border-radius;
+    background: @light-green;
+    left: -130px;
+    padding: 12px 26px 26px 26px;
+    position: absolute;
+    top: 0px;
+
+    .title {
+      font-style: italic;
+      font-weight: 400;
+      margin: 0 0 4px 0;
+      text-align: center;
+      text-transform: lowercase;
+    }
+
+    .tile {
+      height: 77px;
+      position: static !important;
+      width: 56px;
+      line-height: 77px;
+      &.bonus:before {
+        content: '+';
+      }
+    }
+  }
+
+  .control {
+    left: 422px;
+    position: absolute;
+    top: 0px;
+    width: 500px;
+    text-align: left;
+
+  }
+
+  .new {
+    background: @light-green;
+    box-shadow: 0px 8px @dark-green;
+    font-style: italic;
+    height: 40px;
+    line-height: 40px;
+    left: -130px;
+    position: absolute;
+    text-align: center;
+    text-transform: lowercase;
+    top: 152px;
+    width: 108px;
+    .border-radius;
+
+    &:hover {
+      background: #999;
+      box-shadow: 0px 8px #777;
+      color: #FFF;
+      cursor: pointer;
+    }
+  }
+
+  .hint {
+    background: @light-green;
+    box-shadow: 0px 8px @dark-green;
+    font-style: italic;
+    height: 40px;
+    line-height: 40px;
+    left: -130px;
+    position: absolute;
+    text-align: center;
+    text-transform: lowercase;
+    top: 213px;
+    width: 108px;
+    .border-radius;
+
+    &:hover {
+      background: #999;
+      box-shadow: 0px 8px #777;
+      color: #FFF;
+      cursor: pointer;
+    }
+  }
+}
+
+.footer {
+  font-weight: 300;
+  margin: 30px 0 20px;
+  text-align: center;
+
+  a {
+    font-weight: 400;
+  }
+}
+
+/******************** INDIVIDUAL TILES ***************************************/
+
+.tile {
+  font-size: 42px;
+  height: 110px;
+  line-height: 110px;
+  position: absolute;
+  text-align: center;
+  width: 80px;
+  z-index: 1;
+  .border-radius;
+
+  &.red {
+    background: @red;
+    box-shadow: 0px 8px darken(@red, 20%);
+    color: #FFF;
+  }
+
+  &.blue {
+    background: @blue;
+    box-shadow: 0px 8px darken(@blue, 20%);
+    color: #FFF;
+  }
+
+  &.number, &.bonus {
+    background: #FFF;
+    box-shadow: 0px 8px @yellow;
+    color: #000;
+  }
+}
+
+/******************** ENDGAME ************************************************/
+
+.overlay {
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  height: 100%;
+  left: 0px;
+  position: fixed;
+  top: 0px;
+  width: 100%;
+  z-index: 100;
+}
+
+.endgame {
+  background: @light-gray;
+  color: #000;
+  height: 220px;
+  width: 420px;
+  left: 50%;
+  margin-left: -210px;
+  margin-top: -110px;
+  overflow: hidden;
+  padding: 28px;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  left: 50%;
+  z-index: 1000;
+  .border-box;
+  .border-radius;
+
+  .score-intro {
+    color: #000;
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+
+    strong {
+      color: darken(@yellow, 20%);
+    }
+  }
+
+  .score {
+    font-size: 72px;
+  }
+
+  .btn {
+    color: #FFF;
+    display: inline-block;
+    font-size: 14px;
+    letter-spacing: 1px;
+    margin: 0 6px;
+    padding: 12px 16px;
+    text-transform: uppercase;
+    .border-box;
+    .border-radius;
+
+    &:hover {
+      background: #999;
+      box-shadow: 0px 6px #666;
+      color: #FFF;
+    }
+  }
+
+  .twitter-btn {
+    @twitter: #55ACEE;
+    background: @twitter;
+    box-shadow: 0px 6px darken(@twitter, 20%);
+  }
+
+  .facebook-btn {
+    @facebook: #3B5998;
+    background: @facebook;
+    box-shadow: 0px 6px darken(@facebook, 20%);
+  }
+
+  ::selection {
+    color: #000;
+  }
+}
