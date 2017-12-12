@@ -204,40 +204,41 @@ a {
       cursor: pointer;
     }
   }
-  .score-container{
-    .border-radius;
+  // .score-container{
+  //   .border-radius;
+  //   background: @dark-green;
+  //   box-shadow: 0px 8px @dark-green;
+  //   float: left;
+  //   height: 80px;
+  //   width: 108px;
+  //   left: -130px;
+  //   position: absolute;
+  //   top: 340px;
+  //
+  //   .title {
+  //     font-style: italic;
+  //     font-weight: 400;
+  //     margin: 0 0 4px 0;
+  //     text-align: center;
+  //     text-transform: lowercase;
+  //   }
+  // }
+  .score-container, .best-container {
+    position: relative;
+    display: inline-block;
     background: @dark-green;
-    box-shadow: 0px 8px @dark-green;
-    float: left;
-    height: 80px;
-    width: 108px;
-    left: -130px;
-    position: absolute;
-    top: 340px;
-
-    .title {
-      font-style: italic;
-      font-weight: 400;
-      margin: 0 0 4px 0;
-      text-align: center;
-      text-transform: lowercase;
-    }
+    .border-radius;
+    padding: 15px 25px;
+    font-size: 25px;
+    height: 25px;
+    line-height: 47px;
+    font-weight: bold;
+    border-radius: 3px;
+    color: white;
+    margin-top: 8px;
+    text-align: center;
   }
-}
 
-.score-container, .best-container {
-  position: relative;
-  display: inline-block;
-  background: #bbada0;
-  padding: 15px 25px;
-  font-size: 25px;
-  height: 25px;
-  line-height: 47px;
-  font-weight: bold;
-  border-radius: 3px;
-  color: white;
-  margin-top: 8px;
-  text-align: center; }
   .score-container:after, .best-container:after {
     position: absolute;
     width: 100%;
@@ -247,7 +248,8 @@ a {
     font-size: 13px;
     line-height: 13px;
     text-align: center;
-    color: #eee4da; }
+    color: @gray; 
+  }
   // .score-container .score-addition, .best-container .score-addition {
   //   position: absolute;
   //   right: 30px;
@@ -264,11 +266,14 @@ a {
   //   -moz-animation-fill-mode: both;
   //   animation-fill-mode: both; }
 
-.score-container:after {
-  content: "Score"; }
+  .score-container:after {
+    content: "Score";
+  }
 
-.best-container:after {
-  content: "Best"; }
+  .best-container:after {
+    content: "Best";
+  }
+}
 
 .footer {
   font-weight: 300;
