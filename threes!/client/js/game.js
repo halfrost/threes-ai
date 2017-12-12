@@ -22,7 +22,8 @@ function new_game() {
   })
 
   Session.set("tiles", tiles);
-
+  // set score to zero
+  $('#score').text(0);
   // Generate new next tile
   Session.set("next_tile", document.THREE.util.random_tile());
 
@@ -229,9 +230,10 @@ function next() {
   var next_tile = document.THREE.util.random_tile();
   Session.set("next_tile", next_tile);
   document.THREE.display.render_next();
+  document.THREE.display.render_score(getScore())
 }
 
-function lost() {
+function getScore() {
   var tiles = Session.get("tiles");
 
   var score_tile = function(t) {
@@ -243,7 +245,12 @@ function lost() {
     return acc + ((t != 1 && t != 2) ? score_tile(t) : 0);
   }, 0);
 
-  document.THREE.display.render_lost(total);
+  return total
+}
+
+function lost() {
+  document.THREE.display.render_score(getScore())
+  document.THREE.display.render_lost(getScore());
 }
 
 document.THREE.game = {
