@@ -22,6 +22,11 @@ function render_board() {
   }
 }
 
+function render_score(score) {
+  Session.set("score",score);
+  $('#score').text(score);
+}
+
 function render_next() {
   var next_tile = Session.get("next_tile");
   $(".next .tile").removeClass("red")
@@ -189,6 +194,7 @@ document.THREE.display = {
   render_board: render_board,
   render_next: render_next,
   render_lost: render_lost,
+  render_score:render_score,
   animate_move: animate_move,
   animate_new_tile: animate_new_tile
 };
