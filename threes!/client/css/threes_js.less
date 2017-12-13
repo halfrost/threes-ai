@@ -204,36 +204,51 @@ a {
       cursor: pointer;
     }
   }
-  // .score-container{
-  //   .border-radius;
-  //   background: @dark-green;
-  //   box-shadow: 0px 8px @dark-green;
-  //   float: left;
-  //   height: 80px;
-  //   width: 108px;
-  //   left: -130px;
-  //   position: absolute;
-  //   top: 340px;
-  //
-  //   .title {
-  //     font-style: italic;
-  //     font-weight: 400;
-  //     margin: 0 0 4px 0;
-  //     text-align: center;
-  //     text-transform: lowercase;
-  //   }
-  // }
-  .score-container, .best-container {
-    position: relative;
+
+  .scores-container {
+  float: right;
+  text-align: right;
+}
+
+  .score-container {
+    position: absolute;
     display: inline-block;
     background: @dark-green;
     .border-radius;
-    padding: 15px 25px;
+    float: left;
+    top: 340px;
+    // height: 80px;
+    // width: 58px;
+    min-width: 60px;
+    // left: -130px;
+    right: 420px;
+    padding: 20px 10px 5px 10px;
     font-size: 25px;
-    height: 25px;
+    // height: 25px;
     line-height: 47px;
     font-weight: bold;
-    border-radius: 3px;
+    // border-radius: 3px;
+    color: white;
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  .best-container {
+    position: absolute;
+    display: inline-block;
+    background: @dark-green;
+    .border-radius;
+    float: left;
+    top: 440px;
+    // height: 80px;
+    // width: 58px;
+    left: -130px;
+    padding: 20px 10px 5px 10px;
+    font-size: 25px;
+    // height: 25px;
+    line-height: 47px;
+    font-weight: bold;
+    // border-radius: 3px;
     color: white;
     margin-top: 8px;
     text-align: center;
@@ -248,7 +263,7 @@ a {
     font-size: 13px;
     line-height: 13px;
     text-align: center;
-    color: @gray; 
+    color: @gray;
   }
   // .score-container .score-addition, .best-container .score-addition {
   //   position: absolute;
