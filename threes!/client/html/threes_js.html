@@ -51,7 +51,7 @@
 
     <div class="control">
         <p>
-          Use your arrow keys (&larr; &uarr; &rarr; &darr;) to move.
+          Use arrow keys (&larr; &uarr; &rarr; &darr;) to move.
           <br/><a href="" id="music-control">Play</a> the soundtrack or <a href="http://music.biggiantcircles.com/album/threes-ost" target="new">download</a> it!
         </p>
     </div>
@@ -96,10 +96,10 @@
 
 <template name="endgame">
   <div class="endgame">
-    <div class="score-intro">Thanks for playing! <strong>^____^</strong> Your score is</div>
+    <div class="score-intro">Thanks for playing! <strong>Your score is</strong> </div>
     <div class="score">{{ score }}</div>
-    <a class="btn twitter-btn" href="https://twitter.com/share?text={{ tweet }}" target="new">Tweet</a>
-    <a class="btn facebook-btn" href="" id="share-facebook" target="new">Facebook</a>
+    <div class="btn twitter-btn" id="again-game">
+      Again
     </div>
   </div>
 </template>
