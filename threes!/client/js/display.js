@@ -37,8 +37,7 @@ function render_next() {
 }
 
 function render_lost(total) {
-  var tweet = "I scored " + total + " on %23threesjs! %5E_____%5E";
-  var fb_status = "I scored " + total + " on #threesjs! ^_____^";
+  var tweet = "I scored " + total + " on %23threes-AI!";
 
   var overlay = $("<div/>", {class: "overlay"});
   var endgame = Template.endgame({score: total, tweet: tweet});
@@ -46,16 +45,6 @@ function render_lost(total) {
 
   $("body").append(overlay);
   overlay.fadeIn(200);
-
-  // Facebook sharing
-  $("#share-facebook").click(function(e) {
-    e.preventDefault();
-    FB.ui({
-      method: "feed",
-      link: "http://threesjs.com",
-      caption: fb_status,
-    }, function(response){});
-  });
 
   // Close modal
   $("body").click(function(e) {
