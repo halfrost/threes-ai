@@ -1,5 +1,5 @@
 <head>
-  <title>Threes AI</title>
+  <title>Threes-AI</title>
 </head>
 
 <body>
@@ -11,8 +11,6 @@
 </body>
 
 <template name="main">
-  <!-- ??? -->
-  <div id="fb-root"></div>
 
   {{> header}}
   {{> game}}
@@ -56,26 +54,12 @@
         </p>
     </div>
 
-    <div class="new" id="new-game">
-      New game
-    </div>
-
-    <div class="hint" id="gamehint">
-      Hint
-    </div>
-
-    <div class="autorun" id="auto-run">
-      AI
-    </div>
-
-    <div class="score-container" id="score">
-      0
-    </div>
-
-    <div class="best-container" id="bestscore">
-      978234
-    </div>
-
+    <div class="new" id="new-game">New game</div>
+    <div class="hint" id="gamehint">Hint</div>
+    <div class="autorun" id="auto-run">AI</div>
+    <div class="score-container" id="score">0</div>
+    <div class="best-container" id="bestscore">978234</div>
+    <div class="bbtn" id="again-game">Again</div>
   </div>
 </template>
 
@@ -98,8 +82,6 @@
   <div class="endgame">
     <div class="score-intro">Thanks for playing! <strong>Your score is</strong> </div>
     <div class="score">{{ score }}</div>
-    <div class="btn twitter-btn" id="again-game">
-      Again
-    </div>
+    <div class="bbtn" id="again-game">Again</div>
   </div>
 </template>
