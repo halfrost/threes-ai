@@ -46,6 +46,11 @@ function render_lost(total) {
   $("body").append(overlay);
   overlay.fadeIn(200);
 
+  $("#again-game").click(function(e) {
+    overlay.remove();
+    document.THREE.game.new_game()
+  });
+
   // Close modal
   $("body").click(function(e) {
     if (!$(e.target).closest(".endgame").length) {

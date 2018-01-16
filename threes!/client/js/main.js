@@ -42,9 +42,11 @@ $(function() {
 
   // Handle "new game"
   $("#new-game").click(document.THREE.game.new_game);
+  $("#gamehint").click(document.THREE.game.new_game);
+  $("#auto-run").click(document.THREE.game.new_game);
 
-  // Handle "new game"
-  $("#again-game").click(document.THREE.game.new_game);
+  // Handle "again game"
+  // $("#again-game").click(document.THREE.game.new_game);
 
   // Handle music controls
   var method = "play";
