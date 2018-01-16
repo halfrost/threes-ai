@@ -1,1 +1,4 @@
+*.js linguist-language=go
+*.css linguist-language=go
+*.html linguist-language=go
 models/*.gob filter=lfs diff=lfs merge=lfs -text
