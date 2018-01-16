@@ -1,6 +1,7 @@
 document.THREE = document.THREE || {};
 
 function new_game() {
+  
   // Clear out old tiles
   $(".board .tile").remove();
   var tiles = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
