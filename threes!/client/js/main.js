@@ -4,6 +4,7 @@ LEFT = 37;
 RIGHT = 39;
 UP = 38;
 DOWN = 40;
+REPLAY = 82;
 
 // Helper to repeat |block| |n| times
 Template.game.times = function(n, block) {
@@ -37,6 +38,12 @@ $(function() {
         e.keyCode === DOWN)  {
       e.preventDefault();
       lazy_move(e);
+    }
+  });
+
+  $(window).on("keydown", function(e) {
+    if (e.keyCode === REPLAY)  {
+      document.THREE.game.new_game()
     }
   });
 

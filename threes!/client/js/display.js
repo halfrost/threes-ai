@@ -62,6 +62,10 @@ function render_lost(total) {
     if (e.keyCode === 13) { // Enter
       overlay.remove();
     }
+    if (e.keyCode === REPLAY)  {
+      overlay.remove();
+      document.THREE.game.new_game()
+    }
   });
 }
 
