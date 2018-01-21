@@ -102,13 +102,27 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 大数定律规定，随着重复次数接近无穷大，数值的算术平均值几乎肯定地收敛于期望值。
 
 
+https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf
 
 
 
 
+# Minimax search 极小极大值搜索
 
 
+https://github.com/rianhunter/threes-solver
+
+# Monte Carlo tree search 蒙特卡洛树搜索
 
 
+https://www.zhihu.com/question/39916945
+
+https://en.wikipedia.org/wiki/Monte_Carlo_tree_search#Pure_Monte_Carlo_game_search
+
+https://www.jianshu.com/p/d011baff6b64
 
 
+https://juejin.im/post/59f16e8c5188250385371302
+
+
+http://codingpy.com/article/monte-carlo-tree-search-and-alphago/
