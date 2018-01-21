@@ -1,7 +1,10 @@
 document.THREE = document.THREE || {};
 
+var running = false
+var gameover = false
+
 function new_game() {
-  
+
   // Clear out old tiles
   $(".board .tile").remove();
   var tiles = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
@@ -27,6 +30,10 @@ function new_game() {
   $('#score').text(0);
   // Generate new next tile
   Session.set("next_tile", document.THREE.util.random_tile());
+  // set auto run to false
+  running = false;
+  // set gameover to false
+  gameover = false;
 
   // Render new configuration and next tile
   document.THREE.display.render_board();
@@ -224,6 +231,7 @@ function tick() {
   }
 
   // Oops, no empty spaces or moves left
+  gameover = true;
   setTimeout(lost, 500);
 }
 
@@ -254,6 +262,97 @@ function lost() {
   document.THREE.display.render_lost(getScore());
 }
 
+function auto_run(){
+  console.log('当前自动运行状态是 ：',running);
+  if(running){
+    running=false;
+  }else{
+    running=true;
+    sendMessage(false);
+  }
+  updateButton()
+}
+
+function game_hint(){
+  sendMessage(true)
+}
+
+function sendMessage(isHint) {
+  var self=this;
+  if (window["WebSocket"]) {
+    if(!self.ws){
+      var protocol="ws://";
+      if(window.location.protocol=="https:"){
+        protocol="wss://";
+      }
+      self.ws = new WebSocket(protocol+window.location.hostname+":9000"+"/compute");
+      self.ws.onopen = function(evt) {
+        if(!isHint){
+          running=true;
+        }
+        console.log("Connection open ...");
+        self.ws.send(JSON.stringify({
+          data: '网页开始send数据啦'
+          // data: self.grid.toArray()
+        }));
+        updateButton();
+      };
+
+      self.ws.onmessage = function(evt) {
+        var resp=JSON.parse(evt.data);
+        console.log( "Received Message: " + resp);
+        // console.log( "Received Message: " + resp.dire);
+        // self.actuator.showHint(resp.dire);
+        if(run(resp.dire)){
+          self.ws.send(JSON.stringify({
+            data: '网页接收到信息以后再次send数据啦'
+            // data: self.grid.toArray()
+          }));
+        }
+      };
+
+      self.ws.onclose = function(evt) {
+        running=false;
+        console.log("Connection closed.");
+        updateButton();
+      };
+    }else{
+      self.ws.send(JSON.stringify({
+        data: '这是网页send的信息'
+        // data: self.grid.toArray()
+      }));
+      updateButton();
+    }
+  } else {
+    var item = document.createElement("div");
+    item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
+    appendLog(item);
+  }
+}
+
+function updateButton() {
+  if(!running){
+    $('#gamehint').text('hint');
+    $('#auto-run').text('AI');
+  }else{
+    $('#auto-run').text('stop');
+  }
+};
+
+// moves continuously until game is over
+function run(dire) {
+  if(!running){
+    return
+  }
+  if(gameover){
+    running=false;
+    updateButton()
+    return
+  }
+  // this.move(dire);
+  return running && !gameover
+};
+
 document.THREE.game = {
   new_game: new_game,
   move: move,
@@ -261,5 +360,7 @@ document.THREE.game = {
   insert_new_tile: insert_new_tile,
   tick: tick,
   next: next,
-  lost: lost
+  lost: lost,
+  auto_run: auto_run,
+  game_hint: game_hint
 };

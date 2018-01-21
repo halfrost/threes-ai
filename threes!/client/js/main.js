@@ -49,8 +49,8 @@ $(function() {
 
   // Handle "new game"
   $("#new-game").click(document.THREE.game.new_game);
-  $("#gamehint").click(document.THREE.game.new_game);
-  $("#auto-run").click(document.THREE.game.new_game);
+  $("#gamehint").click(document.THREE.game.game_hint);
+  $("#auto-run").click(document.THREE.game.auto_run);
 
   // Handle "again game"
   // $("#again-game").click(document.THREE.game.new_game);

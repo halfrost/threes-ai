@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 
@@ -27,21 +27,14 @@ var upgrader = websocket.Upgrader{
 }
 
 var (
-	addr   = flag.String("addr", ":8900", "http service address")
+	addr   = flag.String("addr", ":9000", "http service address")
 	online int32
 )
 
 func main() {
 	fmt.Println(logo)
 	flag.Parse()
-	static := http.FileServer(http.Dir("./threes!"))
-	http.Handle("/bundle/", static)
-
-	indexTpl := template.Must(template.ParseFiles("./threes!/bundle/programs/client/app.html"))
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		indexTpl.Execute(w, nil)
-	})
+	log.SetFlags(0)
 	http.HandleFunc("/compute", compute)
 
 	log.Printf("Service started on \x1b[32;1m%s\x1b[32;1m\x1b[0m\n", *addr)
@@ -66,9 +59,10 @@ func compute(w http.ResponseWriter, r *http.Request) {
 	for {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
+			log.Println("read error:", err)
 			break
 		}
-		fmt.Printf("messageType = %v | p = %v\n", messageType, p)
+		log.Printf("recv message: %s\n", string(p))
 		// g := &grid.Grid{}
 		// if err = json.Unmarshal(p, g); err != nil {
 		// 	break
@@ -77,8 +71,11 @@ func compute(w http.ResponseWriter, r *http.Request) {
 		// dire := a.Search()
 		// result := map[string]grid.Direction{"dire": dire}
 		// p, _ = json.Marshal(result)
-		// if err := conn.WriteMessage(messageType, p); err != nil {
-		// 	break
-		// }
+		result := make(map[string]string, 0)
+		result["data"] = "这是服务器返回信息"
+		p, _ = json.Marshal(result)
+		if err := conn.WriteMessage(messageType, p); err != nil {
+			break
+		}
 	}
 }
