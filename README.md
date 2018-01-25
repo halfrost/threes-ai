@@ -5,7 +5,7 @@
 
 
 <p align='center'>
-<img src='./threes!/image/threes_192.jpg'>
+<img src='./threes!/image/threes_192.png'>
 </p>
 
 
