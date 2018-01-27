@@ -1,13 +1,12 @@
-# threes-ai
-
-🤖 AI for the Threes! game. 🎮
-
 
 
 <p align='center'>
-<img src='./threes!/image/threes_192.png'>
+<img src='./threes!/image/header.png'>
 </p>
 
+<p align='center'>
+🤖 AI for the Threes! game. 🎮
+</p>
 
 # 灵感来源
 
