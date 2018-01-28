@@ -18,7 +18,14 @@
 
 
 
+# 运行方法
 
+```go
+
+go build -buildmode=c-shared -o threes.so main.go
+
+
+```
 
 # 游戏分析
 
