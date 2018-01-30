@@ -8,7 +8,11 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/halfrost/threes-ai/ai"
+	"github.com/halfrost/threes-ai/utils"
 )
+
+import "C"
 
 var logo = `
 ______   __  __     ______     ______     ______     ______     ______     __
@@ -78,4 +82,28 @@ func compute(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+//export expect_search_move
+func expect_search_move(board uint64, deck uint32, tileset uint16, move int) float32 {
+	ai.ExpectSearch(board, deck, tileset, move)
+	return 0
+}
+
+//export search_move
+func search_move(board uint64, deck uint32, tileset uint16) int {
+	cand, _ := utils.GetCandidates(deck)
+	ai.Search(utils.GetBoard(board), cand, utils.GetNextBrick(tileset), 0)
+	return 0
+}
+
+//export init_game
+func init_game() {
+	ai.InitGameState()
+	fmt.Printf("【初始化】\n")
+}
+
+//export print_game
+func print_game() {
+
 }
