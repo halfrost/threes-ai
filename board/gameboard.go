@@ -19,7 +19,7 @@ const (
 
 // GameBoard define
 type GameBoard struct {
-	GameBoard [4][4]int
+	Board [4][4]int
 }
 
 var candidate [3]int
@@ -34,7 +34,7 @@ func (b *GameBoard) Clone() *GameBoard {
 // Max find GameBoard Max element
 func (b *GameBoard) Max() int {
 	max := 0
-	for _, row := range b.GameBoard {
+	for _, row := range b.Board {
 		for _, value := range row {
 			if value > max {
 				max = value
