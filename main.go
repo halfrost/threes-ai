@@ -104,6 +104,7 @@ func init_game() {
 }
 
 //export print_game
-func print_game() {
-
+func print_game(board uint64, deck uint32, tileset uint16) {
+	cand, _ := utils.GetCandidates(deck)
+	utils.PrintfGame(utils.GetBoard(board), cand, utils.GetNextBrick(tileset))
 }

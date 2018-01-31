@@ -1,6 +1,9 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 const (
 	// BOARDWIDTH 棋盘宽度
@@ -20,7 +23,7 @@ var deBruijn32tab = [32]byte{
 	31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9,
 }
 
-// GetBoard 从64位数字中获取棋盘
+// GetBoard 从64位数字中获取棋盘,获得的棋盘是 0 - 15 的映射以后的值
 func GetBoard(stream uint64) [][]int {
 	board := make([][]int, BOARDHEIGHT)
 	for i := range board {
@@ -49,7 +52,7 @@ func PrintfBoard(board [][]int) {
 	}
 	fmt.Printf("***------------------------***\n")
 	fmt.Printf("******************************\n")
-	fmt.Printf("******************************\n\n")
+	fmt.Printf("******************************\n")
 }
 
 // GetCandidates 从32位数字中获取候选人和最大砖块
@@ -73,4 +76,27 @@ func GetNextBrick(stream uint16) []int {
 
 func trailingZeros16(x uint16) (n int) {
 	return int(deBruijn32tab[uint32(x&-x)*deBruijn32>>(32-5)])
+}
+
+// PrintfGame 打印游戏状态
+func PrintfGame(board [][]int, candidate []int, nextBrick []int) {
+	fmt.Println()
+	PrintfBoard(board)
+	fmt.Printf("******当前分数:%8d*******\n", gameScore(board))
+	fmt.Printf("******************************\n")
+	fmt.Printf("****候选砖块:%4d,%4d,%4d***\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
+	fmt.Printf("****砖块统计:1:%2d,2:%2d,3:%2d***\n\n\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
+	fmt.Printf("******************************\n")
+}
+
+func gameScore(board [][]int) int {
+	sum := 0
+	for i := range board {
+		for _, v := range board[i] {
+			if v >= 3 {
+				sum += int(math.Pow(3, float64(v-2)))
+			}
+		}
+	}
+	return sum
 }
