@@ -100,3 +100,19 @@ func gameScore(board [][]int) int {
 	}
 	return sum
 }
+
+// Min return min
+func Min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+// Max return max
+func Max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
