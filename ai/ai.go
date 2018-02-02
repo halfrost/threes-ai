@@ -3,15 +3,16 @@ package ai
 import (
 	"fmt"
 
+	"github.com/halfrost/threes-ai/gameboard"
 	"github.com/halfrost/threes-ai/utils"
 )
 
 import "C"
 
 // GameState define
-// type GameState struct {
-// 	GameBoard map[type]type
-// }
+type GameState struct {
+	Dept int
+}
 
 // InitGameState 初始化游戏状态
 func InitGameState() {
@@ -19,11 +20,11 @@ func InitGameState() {
 	//2.5603675951186942, 48.075499534692185, 0.70005740882109824, 127.87624414823753, 253.7959629528122, 945.27171328243628, 674.42839422651991
 }
 
-// Search find MaxScoreMove
-func Search(board [][]int, candidate []int, nextBrick []int, move int) float64 {
+// ExpectSearch find MaxScoreMove
+func ExpectSearch(board [][]int, candidate []int, nextBrick []int) float64 {
 
 	var res float64
-	fmt.Printf("【AI.Search】board = %v |candidate = %v | nextBrick = %v |move = %v |\n", board, candidate, nextBrick, move)
+	fmt.Printf("【AI.Search】board = %v |candidate = %v | nextBrick = %v |\n", board, candidate, nextBrick)
 	// 	eval_state state;
 	//
 	// 	state.depth_limit = std::max(3, count_distinct_tiles(board) - 2);
@@ -50,19 +51,14 @@ func Search(board [][]int, candidate []int, nextBrick []int, move int) float64 {
 	return res
 }
 
-// ExpectSearch : Expectimax Search 最大期望搜索
-func ExpectSearch(board uint64, deck uint32, tileset uint16, move int) float32 {
-	cand, _ := utils.GetCandidates(deck)
-	fmt.Printf("【AI.ExpectSearch】board = %v | deck = %v | tileset = %v |move = %v |\n", utils.GetBoard(board), cand, utils.GetNextBrick(tileset), move)
-	return 0
-}
-
 // HeurSearch : Heuristic search 启发式搜索
 func HeurSearch(f *float32, flen int) {
 	fmt.Printf("【AI.HeurSearch】f = %v | flen = %v\n", f, flen)
 }
 
-// deptSearch : 深搜
-func deptSearch() {
-
+// deptSearch : ordering variance to search
+func deptSearch(board [][]int) int {
+	dept := utils.Max(5, gameboard.FindDiffCount(board))
+	_, maxIndexi, maxIndexj := gameboard.MaxElement(board)
+	return dept
 }

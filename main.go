@@ -84,16 +84,10 @@ func compute(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//export expect_search_move
-func expect_search_move(board uint64, deck uint32, tileset uint16, move int) float32 {
-	ai.ExpectSearch(board, deck, tileset, move)
-	return 0
-}
-
 //export search_move
-func search_move(board uint64, deck uint32, tileset uint16) int {
+func search_move(board uint64, deck uint32, tileset uint16) float64 {
 	cand, _ := utils.GetCandidates(deck)
-	ai.Search(utils.GetBoard(board), cand, utils.GetNextBrick(tileset), 0)
+	ai.ExpectSearch(utils.GetBoard(board), cand, utils.GetNextBrick(tileset))
 	return 0
 }
 
