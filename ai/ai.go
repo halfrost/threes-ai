@@ -60,5 +60,7 @@ func HeurSearch(f *float32, flen int) {
 func deptSearch(board [][]int) int {
 	dept := utils.Max(5, gameboard.FindDiffCount(board))
 	_, maxIndexi, maxIndexj := gameboard.MaxElement(board)
+	qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
+	dept += qua
 	return dept
 }
