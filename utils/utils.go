@@ -3,13 +3,8 @@ package utils
 import (
 	"fmt"
 	"math"
-)
 
-const (
-	// BOARDWIDTH 棋盘宽度
-	BOARDWIDTH = 4
-	// BOARDHEIGHT 棋盘宽度
-	BOARDHEIGHT = 4
+	"github.com/halfrost/threes-ai/gameboard"
 )
 
 var valueMap = map[int]int{
@@ -25,11 +20,11 @@ var deBruijn32tab = [32]byte{
 
 // GetBoard 从64位数字中获取棋盘,获得的棋盘是 0 - 15 的映射以后的值
 func GetBoard(stream uint64) [][]int {
-	board := make([][]int, BOARDHEIGHT)
+	board := make([][]int, gameboard.BOARDHEIGHT)
 	for i := range board {
-		subArray := make([]int, BOARDWIDTH)
+		subArray := make([]int, gameboard.BOARDWIDTH)
 		for j := range subArray {
-			subArray[j] = int((stream << (64 - (uint(i)*BOARDWIDTH+uint(j)+1)*4)) >> 60)
+			subArray[j] = int((stream << (64 - (uint(i)*gameboard.BOARDWIDTH+uint(j)+1)*4)) >> 60)
 		}
 		board[i] = subArray
 	}
