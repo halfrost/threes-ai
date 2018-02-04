@@ -33,10 +33,147 @@ type GameBoard struct {
 var candidate [3]int
 
 // Clone GameBoard Clone
-func (b *GameBoard) Clone() *GameBoard {
-	bClone := &GameBoard{}
-	*bClone = *b
+func Clone(board [][]int) [][]int {
+
+	bClone := make([][]int, BOARDHEIGHT)
+	for i := range board {
+		subArray := make([]int, BOARDWIDTH)
+		for j := range subArray {
+			subArray[j] = board[i][j]
+		}
+		bClone[i] = subArray
+	}
+
 	return bClone
+}
+
+// MakeMove ...
+func MakeMove(board [][]int, move int) (b [][]int, change []int, num int) {
+	newBoard := Clone(board)
+	changeNum := 0
+	change = make([]int, 4)
+	var isChange bool
+	switch move {
+	case 0: // UP
+		{
+			for y := 0; y < 4; y++ {
+				isChange = false
+				for x := 0; x < 3; x++ {
+					if newBoard[x][y] <= 0 {
+						newBoard[x][y] = newBoard[x+1][y]
+						newBoard[x+1][y] = 0
+						changeNum++
+						change[y] = 1
+						isChange = true
+					} else if (newBoard[x][y] == newBoard[x+1][y] && newBoard[x][y] >= 3) || (newBoard[x][y] == 1 && newBoard[x+1][y] == 2) || (newBoard[x][y] == 2 && newBoard[x+1][y] == 1) {
+						newBoard[x][y] += newBoard[x+1][y]
+						newBoard[x+1][y] = 0
+						changeNum++
+						change[y] = 1
+						isChange = true
+					}
+					if isChange {
+						for j := x + 1; j < 3; j++ {
+							newBoard[j][y] = newBoard[j+1][y]
+						}
+						newBoard[3][y] = 0
+						break
+					}
+				}
+			}
+		}
+		break
+	case 1: // DOWN
+		{
+			for y := 0; y < 4; y++ {
+				isChange = false
+				for x := 3; x > 0; x-- {
+					if newBoard[x][y] <= 0 {
+						newBoard[x][y] = newBoard[x-1][y]
+						newBoard[x-1][y] = 0
+						changeNum++
+						change[y] = 1
+						isChange = true
+					} else if (newBoard[x][y] == newBoard[x-1][y] && newBoard[x][y] >= 3) || (newBoard[x][y] == 1 && newBoard[x-1][y] == 2) || (newBoard[x][y] == 2 && newBoard[x-1][y] == 1) {
+						newBoard[x][y] += newBoard[x-1][y]
+						newBoard[x-1][y] = 0
+						changeNum++
+						change[y] = 1
+						isChange = true
+					}
+					if isChange {
+						for j := x - 1; j > 0; j-- {
+							newBoard[j][y] = newBoard[j-1][y]
+						}
+						newBoard[0][y] = 0
+						break
+					}
+				}
+			}
+		}
+		break
+	case 2: // LEFT
+		{
+			for x := 0; x < 4; x++ {
+				isChange = false
+				for y := 0; y < 3; y++ {
+					if newBoard[x][y] <= 0 {
+						newBoard[x][y] = newBoard[x][y+1]
+						newBoard[x][y+1] = 0
+						changeNum++
+						change[x] = 1
+						isChange = true
+					} else if (newBoard[x][y] == newBoard[x][y+1] && newBoard[x][y] >= 3) || (newBoard[x][y] == 1 && newBoard[x][y+1] == 2) || (newBoard[x][y] == 2 && newBoard[x][y+1] == 1) {
+						newBoard[x][y] += newBoard[x][y+1]
+						newBoard[x][y+1] = 0
+						changeNum++
+						change[x] = 1
+						isChange = true
+					}
+					if isChange {
+						for j := y + 1; j < 3; j++ {
+							newBoard[x][j] = newBoard[x][j+1]
+						}
+						newBoard[x][3] = 0
+						break
+					}
+				}
+			}
+		}
+		break
+	case 3: // RIGHT
+		{
+			for x := 0; x < 4; x++ {
+				isChange = false
+				for y := 3; y > 0; y-- {
+					if newBoard[x][y] <= 0 {
+						newBoard[x][y] = newBoard[x][y-1]
+						newBoard[x][y-1] = 0
+						changeNum++
+						change[x] = 1
+						isChange = true
+					} else if (newBoard[x][y] == newBoard[x][y-1] && newBoard[x][y] >= 3) || (newBoard[x][y] == 1 && newBoard[x][y-1] == 2) || (newBoard[x][y] == 2 && newBoard[x][y-1] == 1) {
+						newBoard[x][y] += newBoard[x][y-1]
+						newBoard[x][y-1] = 0
+						changeNum++
+						change[x] = 1
+						isChange = true
+					}
+
+					if isChange {
+						for j := y - 1; j > 0; j-- {
+							newBoard[x][j] = newBoard[x][j-1]
+						}
+						newBoard[x][0] = 0
+						break
+					}
+				}
+			}
+		}
+		break
+	}
+
+	return newBoard, change, changeNum
 }
 
 // MaxElement find GameBoard Max element
