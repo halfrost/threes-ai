@@ -37,7 +37,8 @@ var (
 
 func main() {
 	fmt.Println(logo)
-	utils.InitGameState()
+	utils.InitGameScoreTable()
+	ai.InitGameState()
 	flag.Parse()
 	log.SetFlags(0)
 	http.HandleFunc("/compute", compute)
@@ -94,7 +95,8 @@ func search_move(board uint64, deck uint32, tileset uint16) float64 {
 
 //export init_game
 func init_game() {
-	utils.InitGameState()
+	utils.InitGameScoreTable()
+	ai.InitGameState()
 	fmt.Printf("【初始化】\n")
 }
 

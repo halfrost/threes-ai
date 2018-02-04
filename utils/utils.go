@@ -6,6 +6,7 @@ import (
 
 	"github.com/halfrost/threes-ai/gameboard"
 )
+import "C"
 
 const (
 	lostPenaltyWeight       = 149565.91439596863
@@ -166,8 +167,8 @@ func UnpackCol(row uint16) uint64 {
 	return (tmp | (tmp << 12) | (tmp << 24) | (tmp << 36)) & 0x000F000F000F000F
 }
 
-// InitGameState 初始化游戏状态,打表
-func InitGameState() {
+// InitGameScoreTable 初始化游戏状态,打表
+func InitGameScoreTable() {
 
 	line := make([]uint, 4)
 	var row uint
