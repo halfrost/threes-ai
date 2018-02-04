@@ -176,6 +176,34 @@ func MakeMove(board [][]int, move int) (b [][]int, change []int, num int) {
 	return newBoard, change, changeNum
 }
 
+// InsertBrick ...
+func InsertBrick(board [][]int, nextBrick int, move int, changeLine int) [][]int {
+	newBoard := Clone(board)
+	switch move {
+	case 0:
+		{
+			newBoard[3][changeLine] = nextBrick
+		}
+		break
+	case 1:
+		{
+			newBoard[0][changeLine] = nextBrick
+		}
+		break
+	case 2:
+		{
+			newBoard[changeLine][3] = nextBrick
+		}
+		break
+	case 3:
+		{
+			newBoard[changeLine][0] = nextBrick
+		}
+		break
+	}
+	return newBoard
+}
+
 // MaxElement find GameBoard Max element
 func MaxElement(board [][]int) (m int, row int, col int) {
 	max := 0
