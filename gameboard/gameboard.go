@@ -148,6 +148,10 @@ func CalculateVariance(board [][]int, maxIndexi int, maxIndexj int) int {
 		sum += (quad[k]-total)*(quad[k]-total) + (requad[k]-total)*(requad[k]-total)
 	}
 
+	//样本方差计算公式：
+	//S^2= ∑(X- P) ^2 / (n-1)[2]
+	//S^2为样本方差，X为变量，P为样本均值，n为样本例数。
 	variance := int(math.Ceil(math.Sqrt(math.Sqrt(float64(sum / (2*len(quad) - 1))))))
+
 	return variance
 }
