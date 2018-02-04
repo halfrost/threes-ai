@@ -14,12 +14,6 @@ type GameState struct {
 	Dept int
 }
 
-// InitGameState 初始化游戏状态
-func InitGameState() {
-	// 设置权重
-	//2.5603675951186942, 48.075499534692185, 0.70005740882109824, 127.87624414823753, 253.7959629528122, 945.27171328243628, 674.42839422651991
-}
-
 // ExpectSearch find MaxScoreMove
 func ExpectSearch(board [][]int, candidate []int, nextBrick []int) float64 {
 
