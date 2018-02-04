@@ -60,10 +60,25 @@ func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 	return bestMove
 }
 
+func insertHeurSearch(board [][]int, candidate []int, prob float64) float64 {
+	return 0
+}
+
 // heurSearch : Heuristic search 启发式搜索
 func heurSearch(board [][]int, candidate []int, nextBrick int, move int, changes []int, changeNum int, prob float64) float64 {
+
 	fmt.Printf("【AI.HeurSearch】\n")
-	return 0.0
+	var res float64
+	factor := 1.0 / float64(changeNum)
+	cprob := prob * factor
+
+	for changeIndex := 0; changeIndex < 4; changeIndex++ {
+		if changes[changeIndex] == 1 {
+			newboard := gameboard.InsertBrick(board, nextBrick, move, changeIndex)
+			res += insertHeurSearch(newboard, candidate, cprob)
+		}
+	}
+	return res * factor
 }
 
 // deptSearch : ordering variance to search
