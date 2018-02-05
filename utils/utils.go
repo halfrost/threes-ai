@@ -17,6 +17,10 @@ const (
 	mergesWeight            = 189.79612634521368
 	oneTwoMergesWeight      = 706.9021407486573
 	emptyWeight             = 504.35749738547133
+	// CprobMin ...
+	CprobMin = 0.0001
+	// HightBrickFreq ...
+	HightBrickFreq = 21
 )
 
 var rowLeftTable [65536]uint16
@@ -99,7 +103,13 @@ func PrintfGame(board [][]int, candidate []int, nextBrick []int) {
 	PrintfBoard(board)
 	fmt.Printf("******当前分数:%8d*******\n", gameScore(board))
 	fmt.Printf("******************************\n")
-	fmt.Printf("****候选砖块:%4d,%4d,%4d***\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
+	if len(nextBrick) == 1 {
+		fmt.Printf("********候选砖块:%4d*********\n", valueMap[nextBrick[0]])
+	} else if len(nextBrick) == 2 {
+		fmt.Printf("******候选砖块:%4d,%4d******\n", valueMap[nextBrick[0]], valueMap[nextBrick[1]])
+	} else if len(nextBrick) == 3 {
+		fmt.Printf("****候选砖块:%4d,%4d,%4d***\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
+	}
 	fmt.Printf("****砖块统计:1:%2d,2:%2d,3:%2d***\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
 	fmt.Printf("******************************\n\n\n")
 }
@@ -114,6 +124,29 @@ func gameScore(board [][]int) int {
 		}
 	}
 	return sum
+}
+
+// GetHeurWeightScore ...
+func GetHeurWeightScore(board [][]int) float64 {
+	var res float64
+	res = 0
+	var stream uint16
+	for i := 0; i < len(board); i++ {
+		stream = 0
+		for j := len(board[i]) - 1; j >= 0; j-- {
+			stream += uint16(board[i][j] << uint(j*4))
+		}
+		res += heurScoreTable[stream]
+	}
+
+	for j := 0; j < len(board); j++ {
+		stream = 0
+		for i := len(board[j]) - 1; i >= 0; i-- {
+			stream += uint16(board[i][j] << uint(i*4))
+		}
+		res += heurScoreTable[stream]
+	}
+	return res
 }
 
 // Min return min
