@@ -21,7 +21,7 @@ var gameStateMaster GameState
 
 // InitGameState ...
 func InitGameState() {
-	gameStateMaster = GameState{Dept: 5, MaxElement: 0, CurrentDept: 0, DeptMax: 8}
+	gameStateMaster = GameState{Dept: 3, MaxElement: 0, CurrentDept: 0, DeptMax: 8}
 }
 
 // ExpectSearch find MaxScoreMove
@@ -59,6 +59,7 @@ func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 			bestMove = key
 		}
 	}
+	fmt.Printf("最佳的 move = %v ,score = %v\n\n\n\n\n", bestMove, bestScore)
 	return bestMove
 }
 
@@ -69,10 +70,13 @@ func deptSearch(board [][]int, candidate []int, nextBrick []int, move int) float
 	gameStateMaster.MaxElement = maxEle
 	newboard, changes, changeNum := gameboard.MakeMove(board, move)
 
+	fmt.Printf("变更以后board = %v |candidate = %v | nextBrick = %v | move = %v | changes = %v | changeNum = %v\n", newboard, candidate, nextBrick, move, changes, changeNum)
+
 	if changeNum == 0 {
 		return 0
 	}
 	var result float64
+	result = 0
 	chance := 0
 	for _, brick := range nextBrick {
 		switch brick {
@@ -136,12 +140,14 @@ func heurSearch(board [][]int, candidate []int, nextBrick int, move int, changes
 
 	//fmt.Printf("【AI.HeurSearch】\n")
 	var res float64
+	res = 0
 	factor := 1.0 / float64(changeNum)
 	cprob := prob * factor
 
 	for changeIndex := 0; changeIndex < 4; changeIndex++ {
 		if changes[changeIndex] == 1 {
 			newboard := gameboard.InsertBrick(board, nextBrick, move, changeIndex)
+			//fmt.Printf("【插入砖块】move = %v | newboard = %v | nextBrick = %v\n", move, newboard, nextBrick)
 			res += insertHeurSearch(newboard, candidate, cprob)
 		}
 	}
@@ -155,6 +161,7 @@ func insertHeurSearch(board [][]int, candidate []int, prob float64) float64 {
 	}
 
 	var best float64
+	best = 0
 	gameStateMaster.CurrentDept++
 
 	for move := 0; move < 4; move++ {
@@ -244,11 +251,16 @@ func recursionDeptSearch(board [][]int, candidate []int, move int, changes []int
 }
 
 func deptLevel(board [][]int) int {
-	dept := utils.Max(5, gameboard.FindDiffCount(board))
+	//dept := utils.Max(5, gameboard.FindDiffCount(board))
+	dept := utils.Max(3, gameboard.FindDiffCount(board)-2)
 	fmt.Printf("初始的dept = %v\n", dept)
-	_, maxIndexi, maxIndexj := gameboard.MaxElement(board)
-	qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
-	dept += qua
+	maxE, maxIndexi, maxIndexj := gameboard.MaxElement(board)
+	qua := gameboard.TestVariance(board, maxIndexi, maxIndexj)
+	//qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
+	if maxE-qua <= 4 && maxE >= 9 {
+		dept += 2
+	}
+	//dept += qua
 	fmt.Printf("更新以后的的dept = %v\n", dept)
 	return dept
 }
