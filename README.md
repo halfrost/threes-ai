@@ -198,3 +198,9 @@ Reference:
 
 [2]:P. Auer, N. Cesa-Bianchi, and P. Fischer, “Finite-time Analysis  of the Multiarmed Bandit Problem,” Mach. Learn., vol. 47, no. 2,  pp. 235–256, 2002.
 
+
+
+# To-Do
+
+本来以为这个项目就这样终结了，结果近几天阿里发布了 “黄皮书” 以后，突然觉得有了新的思路，如果有时间，我会完成第二版的。希望更加智能的 AI 能完成 12288 的最高成就。
+
