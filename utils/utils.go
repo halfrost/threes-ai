@@ -9,14 +9,15 @@ import (
 import "C"
 
 const (
-	lostPenaltyWeight       = 149565.91439596863
-	monotonicityPowerWeight = 1.9147186027686733
-	monotonicityWeight      = 35.952280239746
-	sumPowerWeight          = 1.3372030706843374
-	sumWeight               = 95.6296369277664
-	mergesWeight            = 189.79612634521368
-	oneTwoMergesWeight      = 706.9021407486573
-	emptyWeight             = 504.35749738547133
+	lostPenaltyWeight       = 10000.0
+	monotonicityPowerWeight = 2.0
+	monotonicityWeight      = 40.0
+	sumPowerWeight          = 1.0
+	sumWeight               = 100.0
+	mergesWeight            = 200.0
+	oneTwoMergesWeight      = 700.0
+	emptyWeight             = 500.0
+
 	// CprobMin ...
 	CprobMin = 0.0001
 	// HightBrickFreq ...
