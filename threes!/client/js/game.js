@@ -1,7 +1,13 @@
 document.THREE = document.THREE || {};
 
+LEFT = 37;
+RIGHT = 39;
+UP = 38;
+DOWN = 40;
+
 var running = false
 var gameover = false
+var tileMap = {0: 0, 1: 1, 2: 2, 3: 3, 6: 4, 12: 5, 24: 6, 48: 7, 96: 8, 192: 9, 384: 10, 768: 11, 1536: 12, 3072: 13, 6144: 14, 12288: 15}
 
 function new_game() {
 
@@ -42,6 +48,30 @@ function new_game() {
 
 function move(e) {
   var direction = e.which;
+  var g = generate_new_board(direction);
+
+  // Check if any tiles moved
+  if (_.isEmpty(g.moved)) {
+    return;
+  }
+
+  // Execute the move
+  document.THREE.display.animate_move(g, direction);
+  Session.set("tiles", g.board);
+
+  // Add in the new tile
+  var l = insert_new_tile(g.moved, direction);
+  document.THREE.display.animate_new_tile(l, direction);
+  var tiles = Session.get("tiles");
+  tiles[l.i][l.j] = Session.get("next_tile");
+  Session.set("tiles", tiles);
+
+  // Woohoo!
+  tick();
+}
+
+function auto_move(direction) {
+
   var g = generate_new_board(direction);
 
   // Check if any tiles moved
@@ -206,7 +236,6 @@ function insert_new_tile(moved, direction) {
       });
     break;
   }
-
   return _.sample(locs);
 }
 
@@ -263,22 +292,51 @@ function lost() {
 }
 
 function auto_run(){
-  console.log('当前自动运行状态是 ：',running);
   if(running){
     running=false;
   }else{
     running=true;
     sendMessage(false);
   }
-  updateButton()
+  updateButton(10)
 }
 
 function game_hint(){
   sendMessage(true)
 }
 
+function get_send_data(){
+  var tiles = Session.get("tiles");
+  var nt = Session.get("next_tile");
+  var board = JSON.parse(JSON.stringify(tiles));
+
+  var bboard = new Array();
+  bboard[0] = new Array();
+  bboard[1] = new Array();
+  bboard[2] = new Array();
+  bboard[3] = new Array();
+  for (var i = 0; i < board[0].length; i++) {
+    bboard[0][i] = tileMap[board[0][i]]
+  }
+  for (var i = 0; i < board[1].length; i++) {
+    bboard[1][i] = tileMap[board[1][i]]
+  }
+  for (var i = 0; i < board[2].length; i++) {
+    bboard[2][i] = tileMap[board[2][i]]
+  }
+  for (var i = 0; i < board[3].length; i++) {
+    bboard[3][i] = tileMap[board[3][i]]
+  }
+
+  var data = {"data":bboard,"next":nt}
+  return data
+}
+
 function sendMessage(isHint) {
   var self=this;
+
+  var data = get_send_data()
+
   if (window["WebSocket"]) {
     if(!self.ws){
       var protocol="ws://";
@@ -292,21 +350,22 @@ function sendMessage(isHint) {
         }
         console.log("Connection open ...");
         self.ws.send(JSON.stringify({
-          data: '网页开始send数据啦'
-          // data: self.grid.toArray()
+          // data: '网页开始send数据啦'
+          data: data["data"],
+          next: data["next"]
         }));
-        updateButton();
+        updateButton(10);
       };
 
       self.ws.onmessage = function(evt) {
         var resp=JSON.parse(evt.data);
-        console.log( "Received Message: " + resp);
         // console.log( "Received Message: " + resp.dire);
-        // self.actuator.showHint(resp.dire);
+        updateButton(resp.dire)
         if(run(resp.dire)){
+          var nextData = get_send_data()
           self.ws.send(JSON.stringify({
-            data: '网页接收到信息以后再次send数据啦'
-            // data: self.grid.toArray()
+            data: nextData["data"],
+            next: nextData["next"]
           }));
         }
       };
@@ -314,14 +373,14 @@ function sendMessage(isHint) {
       self.ws.onclose = function(evt) {
         running=false;
         console.log("Connection closed.");
-        updateButton();
+        updateButton(10);
       };
     }else{
       self.ws.send(JSON.stringify({
-        data: '这是网页send的信息'
-        // data: self.grid.toArray()
+        data: data["data"],
+        next: data["next"]
       }));
-      updateButton();
+      updateButton(10);
     }
   } else {
     var item = document.createElement("div");
@@ -330,10 +389,26 @@ function sendMessage(isHint) {
   }
 }
 
-function updateButton() {
+function updateButton(dire) {
+  switch (dire) {
+    case 0:
+      $('#gamehint').text('↑');
+      break;
+    case 1:
+      $('#gamehint').text('↓');
+      break;
+    case 2:
+      $('#gamehint').text('←');
+      break;
+    case 3:
+      $('#gamehint').text('→');
+      break;
+  }
   if(!running){
-    $('#gamehint').text('hint');
     $('#auto-run').text('AI');
+    if (dire == 10) {
+      $('#gamehint').text('hint');
+    }
   }else{
     $('#auto-run').text('stop');
   }
@@ -346,10 +421,24 @@ function run(dire) {
   }
   if(gameover){
     running=false;
-    updateButton()
+    updateButton(10)
     return
   }
-  // this.move(dire);
+
+  switch (dire) {
+    case 0:
+      auto_move(UP)
+      break;
+    case 1:
+      auto_move(DOWN)
+      break;
+    case 2:
+      auto_move(LEFT)
+      break;
+    case 3:
+      auto_move(RIGHT)
+      break;
+  }
   return running && !gameover
 };
 
