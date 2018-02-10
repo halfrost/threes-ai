@@ -347,9 +347,9 @@ func CalculateVariance(board [][]int, maxIndexi int, maxIndexj int) int {
 	if maxIndexi < BOARDHEIGHT/2 && maxIndexj < BOARDWIDTH/2 {
 		quadrant = 0
 	} else if maxIndexi < BOARDHEIGHT/2 && maxIndexj > BOARDWIDTH/2 {
-		quadrant = 2
-	} else if maxIndexi > BOARDHEIGHT/2 && maxIndexj < BOARDWIDTH/2 {
 		quadrant = 1
+	} else if maxIndexi > BOARDHEIGHT/2 && maxIndexj < BOARDWIDTH/2 {
+		quadrant = 2
 	} else if maxIndexi > BOARDHEIGHT/2 && maxIndexj > BOARDWIDTH/2 {
 		quadrant = 3
 	}
@@ -428,9 +428,9 @@ func TestVariance(board [][]int, maxIndexi int, maxIndexj int) int {
 	if maxIndexi < BOARDHEIGHT/2 && maxIndexj < BOARDWIDTH/2 {
 		quadrant = 0
 	} else if maxIndexi < BOARDHEIGHT/2 && maxIndexj > BOARDWIDTH/2 {
-		quadrant = 2
-	} else if maxIndexi > BOARDHEIGHT/2 && maxIndexj < BOARDWIDTH/2 {
 		quadrant = 1
+	} else if maxIndexi > BOARDHEIGHT/2 && maxIndexj < BOARDWIDTH/2 {
+		quadrant = 2
 	} else if maxIndexi > BOARDHEIGHT/2 && maxIndexj > BOARDWIDTH/2 {
 		quadrant = 3
 	}
@@ -440,6 +440,7 @@ func TestVariance(board [][]int, maxIndexi int, maxIndexj int) int {
 	}
 
 	maxq := 0
+
 	switch 3 - quadrant {
 	case 0:
 		{
