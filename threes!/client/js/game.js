@@ -35,12 +35,20 @@ function new_game() {
   // set score to zero
   $('#score').text(0);
   // Generate new next tile
-  Session.set("next_tile", document.THREE.util.random_tile());
+  var nextTile = document.THREE.util.random_tile()
+  Session.set("next_tile", nextTile);
   // set auto run to false
   running = false;
   // set gameover to false
   gameover = false;
 
+  if(window.localStorage){
+    window.localStorage.setItem('currentScore',0);
+    window.localStorage.setItem('currentTiles',JSON.stringify({
+      "Tiles":tiles
+    }));
+    window.localStorage.setItem('nextTile',nextTile);
+  }
   // Render new configuration and next tile
   document.THREE.display.render_board();
   document.THREE.display.render_next();
@@ -265,10 +273,19 @@ function tick() {
 }
 
 function next() {
-  var next_tile = document.THREE.util.random_tile();
-  Session.set("next_tile", next_tile);
+  var nextTile = document.THREE.util.random_tile();
+  var score = getScore();
+  Session.set("next_tile", nextTile);
+  var tiles = Session.get("tiles");
   document.THREE.display.render_next();
-  document.THREE.display.render_score(getScore())
+  document.THREE.display.render_score(score)
+  if(window.localStorage){
+    window.localStorage.setItem('currentScore',score);
+    window.localStorage.setItem('currentTiles',JSON.stringify({
+      "Tiles":tiles
+    }));
+    window.localStorage.setItem('nextTile',nextTile);
+  }
 }
 
 function getScore() {
@@ -289,6 +306,10 @@ function getScore() {
 function lost() {
   document.THREE.display.render_score(getScore())
   document.THREE.display.render_lost(getScore());
+  if(window.localStorage){
+    window.localStorage.removeItem('currentTiles');
+    window.localStorage.removeItem('nextTile');
+  }
 }
 
 function auto_run(){
@@ -375,6 +396,8 @@ function sendMessage(isHint) {
         console.log("Connection closed.");
         updateButton(10);
       };
+
+
     }else{
       self.ws.send(JSON.stringify({
         data: data["data"],
