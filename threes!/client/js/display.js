@@ -139,6 +139,17 @@ function animate_move(obj, direction) {
     var old_coords = {top: parseInt(el.css("top")), left: parseInt(el.css("left"))};
     var new_coords = movement(old_coords);
 
+    if (t.t >= 1536 && t.t < 12288) {
+      el.css({
+        'font-size': 32
+      });
+    }
+    if (t.t >= 12288) {
+      el.css({
+        'font-size': 25
+      });
+    }
+
     el.css("zIndex", 100);
     el.animate({
       top: new_coords.top,
@@ -152,7 +163,8 @@ function animate_move(obj, direction) {
       el.addClass(document.THREE.util.tile_class(t.t));
       el.html(t.t);
 
-      // el.effect("bounce", {distance: 30, times: 3});
+      // 跳跃的动画
+      //el.effect("bounce", {distance: 30, times: 3});
     });
   });
 }
