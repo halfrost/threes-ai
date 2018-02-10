@@ -111,7 +111,7 @@ func PrintfGame(board [][]int, candidate []int, nextBrick []int) {
 	} else if len(nextBrick) == 3 {
 		fmt.Printf("****候选砖块:%4d,%4d,%4d***\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
 	}
-	fmt.Printf("****砖块统计:1:%2d,2:%2d,3:%2d***\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
+	fmt.Printf("****砖块统计:1:%2d,2:%2d,3:%2d***\n", candidate[0], candidate[1], candidate[2])
 	fmt.Printf("******************************\n\n\n")
 }
 
