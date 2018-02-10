@@ -259,15 +259,13 @@ func deptLevel(board [][]int) int {
 	dept := utils.Max(3, gameboard.FindDiffCount(board)-2)
 	fmt.Printf("初始的dept = %v\n", dept)
 	maxE, maxIndexi, maxIndexj := gameboard.MaxElement(board)
-	qua := gameboard.TestVariance(board, maxIndexi, maxIndexj)
-	//qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
+	//qua := gameboard.TestVariance(board, maxIndexi, maxIndexj)
+	//fmt.Printf("qua = %v", qua)
+	qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
 	fmt.Printf("qua = %d", qua)
 	if maxE-qua <= 4 && maxE >= 9 {
 		dept += 2
 	}
-	// if qua >= 3 && maxE >= 9 {
-	// 	dept += qua
-	// }
 	fmt.Printf("更新以后的的dept = %v\n", dept)
 	return dept
 }
