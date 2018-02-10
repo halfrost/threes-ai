@@ -10,11 +10,26 @@ function render_board() {
         var block = Template.tile({row: i, col: j, tile: t});
         block = $(block).addClass(document.THREE.util.tile_class(t));
 
-        // (Here there be magic numbers)
-        block = $(block).css({
-          left: 22 + (j * 92),
-          top: 22 + (i * 130)
-        });
+        //(Here there be magic numbers)
+        if (t >= 1536 && t < 12288) {
+          block = $(block).css({
+            left: 22 + (j * 92),
+            top: 22 + (i * 130),
+            'font-size': 32
+          });
+        } else if ( t >= 12288) {
+          block = $(block).css({
+            left: 22 + (j * 92),
+            top: 22 + (i * 130),
+            'font-size': 25
+          });
+        } else {
+          block = $(block).css({
+            left: 22 + (j * 92),
+            top: 22 + (i * 130)
+          });
+        }
+
 
         $(".board").append(block);
       }
@@ -23,8 +38,11 @@ function render_board() {
 }
 
 function render_score(score) {
-  Session.set("score",score);
   $('#score').text(score);
+}
+
+function render_bestscore(score) {
+  $('#bestscore').text(score);
 }
 
 function render_next() {
@@ -176,10 +194,29 @@ function animate_new_tile(coords, direction) {
   var left = 22 + (coords.j * 92);
   var origins = origin(top, left);
 
-  block.css({
-    left: origins.left,
-    top: origins.top
-  });
+  if (next_tile >= 1536 && next_tile < 12288) {
+    block = $(block).css({
+      left: origins.left,
+      top: origins.top,
+      'font-size': 32
+    });
+  } else if ( next_tile >= 12288) {
+    block = $(block).css({
+      left: origins.left,
+      top: origins.top,
+      'font-size': 25
+    });
+  } else {
+    block = $(block).css({
+      left: origins.left,
+      top: origins.top
+    });
+  }
+
+  // block.css({
+  //   left: origins.left,
+  //   top: origins.top
+  // });
   $(".board").append(block);
 
   block.animate({

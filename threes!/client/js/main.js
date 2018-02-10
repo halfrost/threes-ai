@@ -17,15 +17,32 @@ Template.game.times = function(n, block) {
 
 // Game loop 'n' stuff
 $(function() {
-  GAnalytics.pageview();
+  //GAnalytics.pageview();
 
   // Start new game if none exists
-  if (!Session.get("tiles")) {
-    document.THREE.game.new_game();
-  }
-  else {
-    document.THREE.display.render_board();
-    document.THREE.display.render_next();
+  if(window.localStorage){
+    var score = window.localStorage.getItem('currentScore');
+    var tiles = JSON.parse(window.localStorage.getItem('currentTiles'));
+    var nextTile = window.localStorage.getItem('nextTile');
+
+    if (tiles != null) {
+      //Session.set("next_tile", nextTile);
+      Session.set("next_tile", parseInt(nextTile,10));
+      Session.set("tiles", tiles["Tiles"]);
+      document.THREE.display.render_board();
+      document.THREE.display.render_next();
+      document.THREE.display.render_score(score);
+    }else {
+      document.THREE.game.new_game();
+    }
+  }else {
+    if (!Session.get("tiles")) {
+      document.THREE.game.new_game();
+    }
+    else {
+      document.THREE.display.render_board();
+      document.THREE.display.render_next();
+    }
   }
 
   // Handle keypresses
