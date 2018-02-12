@@ -17,11 +17,6 @@ type GameState struct {
 	MoveCount   int
 }
 
-// InitGameState ...
-func InitGameState() {
-	//gameStateMaster = GameState{Dept: 3, MaxElement: 0, CurrentDept: 0, DeptMax: 8, MoveCount: 0, Move: -1, Score: 0}
-}
-
 // ExpectSearch find MaxScoreMove
 func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 
