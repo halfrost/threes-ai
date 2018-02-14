@@ -15,12 +15,20 @@ type GameState struct {
 	CurrentDept int
 	DeptMax     int
 	MoveCount   int
+	CacheScore  map[uint64]float64
+	CacheHint   int
 }
+
+const (
+	debug = false
+)
 
 // ExpectSearch find MaxScoreMove
 func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 
-	fmt.Printf("【AI.Search】board = %v |candidate = %v | nextBrick = %v |\n", board, candidate, nextBrick)
+	if debug {
+		fmt.Printf("【AI.Search】board = %v |candidate = %v | nextBrick = %v |\n", board, candidate, nextBrick)
+	}
 	moveScoreMap := make(map[int]float64, 0)
 
 	ExpectScoreSearch := func(scoreChan chan float64, board [][]int, candidate []int, nextBrick []int, move int) {
@@ -57,17 +65,22 @@ func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 
 // deptSearch : ordering variance to search
 func deptSearch(board [][]int, candidate []int, nextBrick []int, move int) float64 {
-	fmt.Printf("【AI.deptSearch】board = %v |candidate = %v | nextBrick = %v | move = %v\n", board, candidate, nextBrick, move)
+	if debug {
+		fmt.Printf("【AI.deptSearch】board = %v |candidate = %v | nextBrick = %v | move = %v\n", board, candidate, nextBrick, move)
+	}
 	maxEle, _, _ := gameboard.MaxElement(board)
 
-	gameStateMaster := GameState{MaxElement: 0, CurrentDept: 0, DeptMax: 8, MoveCount: 0}
+	cs := make(map[uint64]float64, 0)
+	gameStateMaster := GameState{MaxElement: 0, CurrentDept: 0, DeptMax: 8, MoveCount: 0, CacheScore: cs, CacheHint: 0}
 	gameStateMaster.DeptMax = deptLevel(board)
 	gameStateMaster.MaxElement = maxEle
 	gameStateMaster.MoveCount = 0
 
 	newboard, changes, changeNum := gameboard.MakeMove(board, move)
 
-	fmt.Printf("变更以后board = %v |candidate = %v | nextBrick = %v | move = %v | changes = %v | changeNum = %v\n", newboard, candidate, nextBrick, move, changes, changeNum)
+	if debug {
+		fmt.Printf("变更以后board = %v |candidate = %v | nextBrick = %v | move = %v | changes = %v | changeNum = %v\n", newboard, candidate, nextBrick, move, changes, changeNum)
+	}
 
 	if changeNum == 0 {
 		return 0
@@ -88,7 +101,9 @@ func deptSearch(board [][]int, candidate []int, nextBrick []int, move int) float
 					}
 				}
 				result += heurSearch(&gameStateMaster, newboard, c, brick, move, changes, changeNum, 1.0)
-				fmt.Printf("brick = 1, result = %f, move = %d\n", result, move)
+				if debug {
+					fmt.Printf("brick = 1, result = %f, move = %d\n", result, move)
+				}
 			}
 			break
 		case 2:
@@ -102,7 +117,9 @@ func deptSearch(board [][]int, candidate []int, nextBrick []int, move int) float
 					}
 				}
 				result += heurSearch(&gameStateMaster, newboard, c, brick, move, changes, changeNum, 1.0)
-				fmt.Printf("brick = 2, result = %f, move = %d\n", result, move)
+				if debug {
+					fmt.Printf("brick = 2, result = %f, move = %d\n", result, move)
+				}
 			}
 			break
 		case 3:
@@ -116,27 +133,31 @@ func deptSearch(board [][]int, candidate []int, nextBrick []int, move int) float
 					}
 				}
 				result += heurSearch(&gameStateMaster, newboard, c, brick, move, changes, changeNum, 1.0)
-				fmt.Printf("brick = 3, result = %f, move = %d\n", result, move)
+				if debug {
+					fmt.Printf("brick = 3, result = %f, move = %d\n", result, move)
+				}
 			}
 			break
 		default:
 			{
 				result += heurSearch(&gameStateMaster, newboard, candidate, brick, move, changes, changeNum, 1.0)
-				fmt.Printf("brick = else, result = %f, move = %d\n", result, move)
+				if debug {
+					fmt.Printf("brick = else, result = %f, move = %d\n", result, move)
+				}
 			}
 			break
 		}
 		chance++
 	}
 
-	fmt.Printf("本地 move 移动了 move = %d , movecount = %d deptMax = %d , currentDept = %d\n", move, gameStateMaster.MoveCount, gameStateMaster.DeptMax, gameStateMaster.CurrentDept)
+	if debug {
+		fmt.Printf("本地 move 移动了 move = %d , movecount = %d deptMax = %d , currentDept = %d cachehint = %d cachesize = %d\n", move, gameStateMaster.MoveCount, gameStateMaster.DeptMax, gameStateMaster.CurrentDept, gameStateMaster.CacheHint, len(gameStateMaster.CacheScore))
+	}
 	return result/float64(chance) + 1e-6
 }
 
 // heurSearch : Heuristic search 启发式搜索
 func heurSearch(gameStateMaster *GameState, board [][]int, candidate []int, nextBrick int, move int, changes []int, changeNum int, prob float64) float64 {
-
-	//fmt.Printf("【AI.HeurSearch】\n")
 	var res float64
 	res = 0
 	factor := 1.0 / float64(changeNum)
@@ -145,18 +166,34 @@ func heurSearch(gameStateMaster *GameState, board [][]int, candidate []int, next
 	for changeIndex := 0; changeIndex < 4; changeIndex++ {
 		if changes[changeIndex] == 1 {
 			newboard := gameboard.InsertBrick(board, nextBrick, move, changeIndex)
-			//fmt.Printf("【插入砖块】move = %v | newboard = %v | nextBrick = %v\n", move, newboard, nextBrick)
 			res += insertHeurSearch(gameStateMaster, newboard, candidate, cprob)
 		}
 	}
 	return res * factor
 }
 
+// insertHeurSearch : Heuristic search 插入候选可能的砖块，再进行启发式搜索
 func insertHeurSearch(gameStateMaster *GameState, board [][]int, candidate []int, prob float64) float64 {
-	//fmt.Printf("递归的累计概率为prob = %v |prob < utils.CprobMin = %v |CurrentDept = %v , DeptMax = %v \n", prob, prob < utils.CprobMin, gameStateMaster.CurrentDept, gameStateMaster.DeptMax)
+
 	if prob < utils.CprobMin || gameStateMaster.CurrentDept >= gameStateMaster.DeptMax {
 		return utils.GetHeurWeightScore(board)
 	}
+
+	var stream uint64
+	stream = 0
+	for i := len(board) - 1; i >= 0; i-- {
+		for j := len(board[i]) - 1; j >= 0; j-- {
+			stream += uint64(utils.ReValueMap[board[i][j]] << uint((uint(i)*gameboard.BOARDWIDTH+uint(j))*4))
+		}
+	}
+
+	// if gameStateMaster.CurrentDept < utils.CacheDeptLevel {
+	// b := gameStateMaster.CacheScore[stream]
+	// if b != 0 {
+	// 	gameStateMaster.CacheHint++
+	// 	return b
+	// }
+	// }
 
 	var best float64
 	best = 0
@@ -173,10 +210,13 @@ func insertHeurSearch(gameStateMaster *GameState, board [][]int, candidate []int
 		}
 	}
 	gameStateMaster.CurrentDept--
+	gameStateMaster.CacheScore[stream] = best
+
 	return best
 }
 
 func recursionDeptSearch(gameStateMaster *GameState, board [][]int, candidate []int, move int, changes []int, changeNum int, prob float64) float64 {
+
 	var res float64
 	res = 0
 	maxEle, _, _ := gameboard.MaxElement(board)
@@ -203,7 +243,6 @@ func recursionDeptSearch(gameStateMaster *GameState, board [][]int, candidate []
 			hres += heurSearch(gameStateMaster, board, candidate, i+4, move, changes, changeNum, prob/float64(chance)/float64(utils.HightBrickFreq))
 		}
 		hres /= float64(chance * utils.HightBrickFreq)
-
 		total *= float64(utils.HightBrickFreq) / (utils.HightBrickFreq - 1)
 	}
 
@@ -250,17 +289,21 @@ func recursionDeptSearch(gameStateMaster *GameState, board [][]int, candidate []
 }
 
 func deptLevel(board [][]int) int {
-	//dept := utils.Max(5, gameboard.FindDiffCount(board))
 	dept := utils.Max(3, gameboard.FindDiffCount(board)-2)
-	fmt.Printf("初始的dept = %v\n", dept)
+	if debug {
+		fmt.Printf("初始的dept = %v\n", dept)
+	}
 	maxE, maxIndexi, maxIndexj := gameboard.MaxElement(board)
-	//qua := gameboard.TestVariance(board, maxIndexi, maxIndexj)
-	//fmt.Printf("qua = %v", qua)
-	qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
-	fmt.Printf("qua = %d", qua)
+	qua := gameboard.TestVariance(board, maxIndexi, maxIndexj)
+	//qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
+	if debug {
+		fmt.Printf("qua = %d", qua)
+	}
 	if maxE-qua <= 4 && maxE >= 9 {
 		dept += 2
 	}
-	fmt.Printf("更新以后的的dept = %v\n", dept)
+	if debug {
+		fmt.Printf("更新以后的的dept = %v\n", dept)
+	}
 	return dept
 }
