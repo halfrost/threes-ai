@@ -20,16 +20,21 @@ const (
 
 	// CprobMin ...
 	CprobMin = 0.0001
+	// CacheDeptLevel ...
+	CacheDeptLevel = 6
 	// HightBrickFreq ...
 	HightBrickFreq = 21
 )
 
-var rowMaxTable [65536]int64
 var heurScoreTable [65536]float64
-var scoreTable [65536]float64
 
 var valueMap = map[int]int{
 	0: 0, 1: 1, 2: 2, 3: 3, 4: 6, 5: 12, 6: 24, 7: 48, 8: 96, 9: 192, 10: 384, 11: 768, 12: 1536, 13: 3072, 14: 6144, 15: 12288,
+}
+
+// ReValueMap ...
+var ReValueMap = map[int]int{
+	0: 0, 1: 1, 2: 2, 3: 3, 6: 4, 12: 5, 24: 6, 48: 7, 96: 8, 192: 9, 384: 10, 768: 11, 1536: 12, 3072: 13, 6144: 14, 12288: 15,
 }
 
 const deBruijn32 = 0x077CB531
@@ -101,11 +106,11 @@ func PrintfGame(board [][]int, candidate []int, nextBrick []int) {
 	fmt.Printf("******当前分数:%8d*******\n", gameScore(board))
 	fmt.Printf("******************************\n")
 	if len(nextBrick) == 1 {
-		fmt.Printf("********候选砖块:%4d*********\n", valueMap[nextBrick[0]])
+		fmt.Printf("********候选砖块:%4d*********\n", nextBrick[0])
 	} else if len(nextBrick) == 2 {
-		fmt.Printf("******候选砖块:%4d,%4d******\n", valueMap[nextBrick[0]], valueMap[nextBrick[1]])
+		fmt.Printf("******候选砖块:%4d,%4d******\n", nextBrick[0], nextBrick[1])
 	} else if len(nextBrick) == 3 {
-		fmt.Printf("****候选砖块:%4d,%4d,%4d***\n", valueMap[candidate[0]], valueMap[candidate[1]], valueMap[candidate[2]])
+		fmt.Printf("****候选砖块:%4d,%4d,%4d***\n", nextBrick[0], nextBrick[1], nextBrick[2])
 	}
 	fmt.Printf("****砖块统计:1:%2d,2:%2d,3:%2d***\n", candidate[0], candidate[1], candidate[2])
 	fmt.Printf("******************************\n\n\n")
@@ -196,16 +201,6 @@ func InitGameScoreTable() {
 		line[1] = uint((row >> 4) & 0xf)
 		line[2] = uint((row >> 8) & 0xf)
 		line[3] = uint((row >> 12) & 0xf)
-
-		score := 0.0
-		for i := 0; i < 4; i++ {
-			rank := line[i]
-			if rank >= 3 {
-				score += math.Pow(3, float64(rank-2))
-			}
-		}
-		scoreTable[row] = score
-		rowMaxTable[row] = MaxInt64(MaxUint(line[0], line[1]), MaxUint(line[2], line[3]))
 
 		var sum float64
 		empty := 0
