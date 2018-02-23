@@ -154,7 +154,7 @@ function animate_move(obj, direction) {
     el.animate({
       top: new_coords.top,
       left: new_coords.left
-    }, 0, "easeOutQuart", function() {
+    }, 150, "easeOutQuart", function() {
       $("[data-coords=" + coords(t.i, t.j) + "]").remove();
       el.attr("data-coords", coords(t.i, t.j));
       el.removeClass("blue");
@@ -234,7 +234,7 @@ function animate_new_tile(coords, direction) {
   block.animate({
     top: top,
     left: left
-  }, 0, "easeOutQuart");
+  }, 150, "easeOutQuart");
 }
 
 document.THREE.display = {
