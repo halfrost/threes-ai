@@ -39,6 +39,21 @@ python threes_ai_web.py -b chrome -p 9162
 
 有时候不加 sudo 命令的话，可能出现一些异常，比如 GPU 分配失败。
 
+```
+
+已在现有的浏览器会话中创建新的窗口。
+[29819:45571:0225/225036.004108:ERROR:browser_gpu_channel_host_factory.cc(121)] Failed to launch GPU process.
+
+```
+
+遇到上面的错误，把 Chrome 完全退出，再执行 `--remote-debugging-port=9162` 即可。一般会建立新的 websocket 连接，例如：
+
+```
+
+DevTools listening on ws://127.0.0.1:9162/devtools/browser/86c6deb3-3fc1-4833-98ab-0177ec50f1fa
+
+```
+
 # 游戏分析
 
 Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半段，合成出了 6144 之后，很大一部分时间这个砖块所在的位置就不能动了，相当于 4 * 4 = 16 个格子，减去一个给它。场地上的砖块到后期也无法一下子合并，所以预留的空间很少，常常因为周转不开或者连续来 1 或者连续来 2，无法合成 3 ，活活被“挤死”了。
