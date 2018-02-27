@@ -1,6 +1,5 @@
 {
   "packages": {
-    "jquery-ui": {},
-    "GAnalytics": {}
+    "jquery-ui": {}
   }
 }
