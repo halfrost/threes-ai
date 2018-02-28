@@ -7,7 +7,9 @@ function render_board() {
       var t = tiles[i][j];
 
       if (tiles[i][j] != 0) {
-        var block = Template.tile({row: i, col: j, tile: t});
+
+        // var block = Template.tile({row: i, col: j, tile: t});
+        var block = Blaze.toHTMLWithData(Template.tile, {row: i, col: j, tile: t});
         block = $(block).addClass(document.THREE.util.tile_class(t));
 
         //(Here there be magic numbers)
@@ -58,7 +60,8 @@ function render_lost(total) {
   var tweet = "I scored " + total + " on %23threes-AI!";
 
   var overlay = $("<div/>", {class: "overlay"});
-  var endgame = Template.endgame({score: total, tweet: tweet});
+  // var endgame = Template.endgame({score: total});
+  var endgame = Blaze.toHTMLWithData(Template.endgame, {score: total});
   overlay.append(endgame);
 
   $("body").append(overlay);
@@ -199,7 +202,8 @@ function animate_new_tile(coords, direction) {
     break;
   }
 
-  var block = Template.tile({row: coords.i, col: coords.j, tile: next_tile});
+  // var block = Template.tile({row: coords.i, col: coords.j, tile: next_tile});
+  var block = Blaze.toHTMLWithData(Template.tile, {row: coords.i, col: coords.j, tile: next_tile});
   block = $(block).addClass(document.THREE.util.tile_class(next_tile));
 
   var top = 22 + (coords.i * 130);
