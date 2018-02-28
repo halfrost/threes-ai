@@ -7,18 +7,32 @@ DOWN = 40;
 REPLAY = 82;
 
 // Helper to repeat |block| |n| times
-Template.game.times = function(n, block) {
-  var result = "";
-  for (var i = 0; i < n; i++) {
-    result += block.fn(i);
+// Template.game.helpers({
+//   times : function(n, block) {
+//     var result = "";
+//     for (var i = 0; i < n; i++) {
+//       result += block.fn(i);
+//     }
+//     return result;
+//   }
+// })
+
+Template.game.helpers({
+  times() {
+    return [1,2,3,4];
   }
-  return result;
-}
+})
+
+// Template.game.times = function(n, block) {
+//   var result = "";
+//   for (var i = 0; i < n; i++) {
+//     result += block.fn(i);
+//   }
+//   return result;
+// }
 
 // Game loop 'n' stuff
 $(function() {
-  //GAnalytics.pageview();
-
   // Start new game if none exists
   if(window.localStorage){
     var score = window.localStorage.getItem('currentScore');

@@ -39,13 +39,13 @@
 <template name="game">
   <div class="game">
     <div class="board">
-      {{#times 4}}
+      {{#each times}}
       <div class="row">
-        {{#times 4}}
+        {{#each times}}
           <div class="tile-container"></div>
-        {{/times}}
+        {{/each}}
       </div>
-      {{/times}}
+      {{/each}}
     </div>
     <div class="next">
       <div class="title">Next</div>
