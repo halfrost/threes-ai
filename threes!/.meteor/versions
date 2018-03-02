@@ -47,7 +47,6 @@ mongo-id@1.0.6
 npm-mongo@2.2.34
 observe-sequence@1.0.16
 ordered-dict@1.1.0
-preserve-inputs@1.0.11
 promise@0.10.2
 random@1.1.0
 reactive-dict@1.2.0
