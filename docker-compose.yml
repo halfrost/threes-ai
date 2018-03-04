@@ -1,0 +1,27 @@
+version: '3.3'
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_web
+    image: threes_web:0.0.1
+    ports:
+     - "9888:9888"
+  ai:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_go
+    image: threes_go:0.0.1
+    ports:
+     - "9000:9000"
+
+  threes-ai:
+    depends_on:
+      - web
+      - ai
+    image: alpine:latest
+    container_name: threes-ai
+    restart: always
+    links:
+      - web:threes-web
+      - ai:threes-ai
