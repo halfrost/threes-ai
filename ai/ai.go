@@ -59,7 +59,9 @@ func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 			bestMove = key
 		}
 	}
-	fmt.Printf("最佳的 move = %v ,score = %f\n\n\n\n\n", bestMove, bestScore)
+	if debug {
+		fmt.Printf("最佳的 move = %v ,score = %f\n\n\n\n\n", bestMove, bestScore)
+	}
 	return bestMove
 }
 
