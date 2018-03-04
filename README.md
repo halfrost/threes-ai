@@ -363,6 +363,11 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 </p>
 
 
+<p align='center'>
+<img src='./threes!/image/example/example_2.png'>
+</p>
+
+
 > Reference:
 > 
 > \[1\]:[ExpectimaxSearch](https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf)
