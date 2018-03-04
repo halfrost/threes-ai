@@ -364,7 +364,7 @@ function sendMessage(isHint) {
       if(window.location.protocol=="https:"){
         protocol="wss://";
       }
-      self.ws = new WebSocket(protocol+window.location.hostname+":9000"+"/compute");
+      self.ws = new WebSocket(protocol+window.location.hostname+":8999"+"/compute");
       self.ws.onopen = function(evt) {
         if(!isHint){
           running=true;
