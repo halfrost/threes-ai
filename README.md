@@ -36,10 +36,7 @@
 <img src='./threes!/image/playthrees_best_score_2.png'>
 </p>
 
-
-<p align='center'>
-<img src='./threes!/image/playthrees_best_score_2.png'>
-</p>
+这个高分视频在这里，[腾讯视频链接](https://v.qq.com/x/page/w0559rco3qz.html)
 
 ## 2. threes Android 客户端
 
@@ -69,6 +66,8 @@
 <img src='./threes!/image/web_best_score_1.png'>
 </p>
 
+这个高分视频在这里，[腾讯视频链接](https://v.qq.com/x/page/e0559nle7dh.html)
+
 在网络上流程着这样一个“谣传”：当合成出 12288 砖块的时候，即 2个 6144 砖块合并，游戏就会结束，开始播放游戏制作人的名单。在这个网站上并没有这个规则，能合成出多高的砖块都可以。分数没有上线，这样也可以充分检验 AI 的智慧。
 
 当然针对官方的前 2 个游戏地址，笔者还真的没有合成出一次 12288 砖块，所以也无法验证“谣传”的真伪。100% 合成出 12288 砖块，也是本 AI 的目标。**暂时还没有达到目标**。
@@ -76,12 +75,118 @@
 
 # 运行方法
 
+
+
+## 1. threes game 自建网站
+
+### Docker 
+
+```go
+
+
+// 先把 go 服务端跑起来，端口是 9000
+docker container run --rm -p 9000:9000 -it halfrost/threes-ai:go-0.0.1
+
+// 再把 web 前端跑起来，http://127.0.0.1:9888
+docker container run --rm -p 9888:9888 -it halfrost/threes-ai:web-0.0.1
+
+
+```
+
+### Local
+
+本地构建就稍微麻烦一点，也分两步进行，先构建 go server，再构建 web。
+
+先构建 go server：
+
+```
+
+// 回到项目主目录
+cd threes-ai
+go run main.go
+
+
+```
+
+上述命令会构建出 go server ，服务器会监听 9000 端口发来的信息。
+
+再构建 web ：
+
+由于项目是基于 meteor 的，所以请先配置好 meteor 的本地环境，安装 meteor [手册链接](https://www.meteor.com/install)
+
+```
+
+// 进入 threes! web 主目录
+cd threes-ai/threes!
+meteor 
+
+
+```
+
+上述命令会把 web 跑在 http://localhost:3000 上。
+
+到这里本地就已经跑起来了。
+
+再谈谈本地如何打包 docker 镜像。
+
+先打包 go server，由于 docker 内部是 linux 的，所以在打包的时候要注意交叉编译，否则最终的 docker 无法执行。具体打包步骤请见 Dockerfile_go 这个文件里面的步骤了。
+
+```
+
+docker image build -t threes_go:0.0.1 .
+docker container run --rm -p 9000:9000 -it threes_go:0.0.1
+
+```
+
+再打包 web：
+
+```
+
+cd threes-ai/threes!
+meteor build ./dist
+
+
+```
+
+上述命令执行结束，会在当前目录下生成 dist 文件夹，并且里面会包含 `threes!.tar.gz` 压缩包。解压这个压缩包，会得到一个 bundle 文件，这个文件就是我们需要部署的。
+
+此时也可以在本地把这个生产环境的 web 跑起来。使用如下命令：
+
+```
+
+cd dist/bundle
+ROOT_URL=http://127.0.0.1 PORT=9888 node main.js
+
+```
+
+这时候 web 也会被跑在 http://127.0.0.1:9888 上。注意这里 node 的版本必须是 8.9.4 。node 的版本要求是 meteor 版本要求的。meteor 1.6 就是对应的 node 8.9.4 。笔者也在 .nvmrc 文件中限制了 node 版本信息。言归正传，再回到打包 web docker 镜像的问题上来。
+
+之后打包成 docker 镜像的步骤就请看 Dockerfile_web 这个文件里面的步骤了。
+
+```
+
+docker image build -t threes_web:0.0.1 .
+docker container run --rm -p 9888:9888 -it threes_web:0.0.1
+
+```
+
+先跑 go server 的 docker 镜像，再把 web 的 docker 镜像跑起来，即可。
+
+
+## 2. play threes game 官方网站
+
+第一步需要先把 go 的程序打包成一个动态库，方便 python 调用。
+
 ```go
 
 go build -buildmode=c-shared -o threes.so main.go
 
 
 ```
+
+上述命令把 go 打包成了 threes.so 动态库。
+
+接下来需要利用 chrome 的 remote debug 模式，建立一个 ws 连接。`threes_ai_web.py` 干的事情就是把 web 上的棋盘数字信息传递给 go，go 函数处理完成以后返回下一步要移动的方向。最后通过 ws 返回到 web 页面，模拟移动。
 
 
 ```go
@@ -109,6 +214,40 @@ python threes_ai_web.py -b chrome -p 9162
 DevTools listening on ws://127.0.0.1:9162/devtools/browser/86c6deb3-3fc1-4833-98ab-0177ec50f1fa
 
 ```
+
+`threes_ai_web.py` 这个脚本还有些问题，有时候出错会导致 ws 连接中断。这个稍后改完再放出来。
+
+
+## 3. FAQ
+
+### 1. halfrost/threes-ai:web-0.0.1 这个镜像有 0.0.2 版本，为何上述命令中用的是 0.0.1 版本？
+
+这个问题牵扯到部署服务器的问题了。在当前源代码中，`threes-ai/threes!/client/js/game.js` 中 367 行，0.0.1 版本这里端口写的是 9000，而 0.0.2 版本这里写的是 8999 。
+
+为何两个版本就这里端口号的差别呢？因为 ssl 的原因。部署到服务器上是 https，所以 ws 就变成了 wss 连接。而跑在本地无所谓，反正是 localhost 或者 127.0.0.1 ，都是 http 的。由于服务器端需要加 ssl，所以需要用 nginx 加一层反向代理，来支持 wss。nginx 监听 web server 8999 端口，加上 ssl 以后转发到 go server 9000 端口。这样就完成了 web 和 go 的 wss 交互。本地运行的话就不用这么麻烦，直接都是 9000 端口即可，web server 通过 9000 端口直接连接 go server 的 9000 端口，进行 ws 通信。
+ 
+
+### 2. 服务器部署过程中，出现了 `WebSocket connection to 'wss://XXXX' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED` 的错误，怎么解决？
+
+一般出现上面 CONNECTION_REFUSED 的错误，可能有以下 3 个原因：
+
+- 1、可能是服务器 iptables 屏蔽了端口
+- 2、可能是 ip 或者端口出错或者不支持协议
+- 3、服务端没启动
+
+笔者在部署的时候就出现了上述的问题，先通过 iptables 检测，发现没有问题。第二种可能就是不支持 wss 了，通过 openssl 命令检测端口：
+
+
+```
+
+openssl s_client [-connect host:port>] [-verify depth] [-cert filename] [-key filename] 
+ [-CApath directory] [-CAfile filename][-reconnect] [-pause] [-showcerts] [-debug] [-msg] 
+ [-nbio_test] [-state] [-nbio] [-crlf] [-ign_eof] [-quiet]
+
+```
+
+通过检测发现端口没有支持 ssl，于是加一层 nginx 代理下 ssl 就解决了上述问题。
+
 
 # 游戏分析
 
@@ -149,20 +288,7 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 机会节点是由加权平均值概率管理的，而不是一味的选择最小值。
 
 
-### 2. 举例
-
-举个例子：
-
-玩家需要以得到最高分数为目标去行动。假设每一步的概率都相同。
-
-```
-伪代码
-
-
-```
-
-
-### 3. 关于剪枝
+### 2. 关于剪枝
 
 **在 expectimax 中不存在剪枝的概念**。
 
@@ -170,7 +296,7 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 
 
 
-### 4. 概率函数
+### 3. 概率函数
 
 在 Expectimax Search 期望最大值搜索中，我们有一个在任何状态下对手行为的概率模型。这个模型可以是简单的均匀分布（例如掷骰子），模型也可能是复杂的，需要经过大量计算才能得到一个概率。
 
@@ -205,7 +331,7 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 
 
 
-### 5. 数学理论
+### 4. 数学理论
 
 在概率论和统计学中，数学期望(mean)（或均值，亦简称期望）是试验中每次可能结果的概率乘以其结果的总和，是最基本的数学特征之一。它反映随机变量平均取值的大小。
 
