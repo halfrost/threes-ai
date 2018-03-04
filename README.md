@@ -16,6 +16,62 @@
 
 > Threes preson join one AI competition  ---> Threes-AI
 
+# “炫耀”分数
+
+目前这个 Go 版本的 AI 在 3 个地方跑了分，都分别跑了 200 盘。拿到高分的比例差不多就 20% 左右。所以也希望能在项目第二阶段——机器学习阶段，能把跑高分的比率提高到 100% 
+
+## 1. play threes game 官方网站
+
+这个网站就是官方游戏的 web 版了。
+
+<p align='center'>
+<img src='./threes!/image/playthrees_best_score_0.png'>
+</p>
+
+<p align='center'>
+<img src='./threes!/image/playthrees_best_score_1.png'>
+</p>
+
+<p align='center'>
+<img src='./threes!/image/playthrees_best_score_2.png'>
+</p>
+
+
+<p align='center'>
+<img src='./threes!/image/playthrees_best_score_2.png'>
+</p>
+
+## 2. threes Android 客户端
+
+这里之所以没有跑 iOS 客户端的游戏截图，是因为 iOS 客户端需要越狱才能运行，笔者手头上的机器都在 iOS 11.2+，等以后越狱了可以再重新来跑跑分。
+
+
+<p align='center'>
+<img src='./threes!/image/threes_android_best_score_1.png'>
+</p>
+
+<p align='center'>
+<img src='./threes!/image/threes_android_best_score_0.png'>
+</p>
+
+
+
+## 3. threes game 自建网站
+
+为了能自己通过机器学习训练模型，也为了能公开展示这个 AI 的实力，于是按照官方的游戏规则，原汁原味的复刻了一个 web 版。
+
+<p align='center'>
+<img src='./threes!/image/web_best_score_0.png'>
+</p>
+
+
+<p align='center'>
+<img src='./threes!/image/web_best_score_1.png'>
+</p>
+
+在网络上流程着这样一个“谣传”：当合成出 12288 砖块的时候，即 2个 6144 砖块合并，游戏就会结束，开始播放游戏制作人的名单。在这个网站上并没有这个规则，能合成出多高的砖块都可以。分数没有上线，这样也可以充分检验 AI 的智慧。
+
+当然针对官方的前 2 个游戏地址，笔者还真的没有合成出一次 12288 砖块，所以也无法验证“谣传”的真伪。100% 合成出 12288 砖块，也是本 AI 的目标。**暂时还没有达到目标**。
 
 
 # 运行方法
@@ -65,7 +121,11 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 在客户端上就存在“跳级”的设定，就可能一段时间就会出现这些砖块。我在测试 AI 的时候也发现了这个问题，被连续来单个的 1 或者连续的来单个的 2 逼死的几率不大，倒是被高分大砖块逼死的情况很多，这样导致存活时间不长，分数也没有网页版的高。
 
 
-# Expectimax Search Trees 最大期望搜索树
+# 算法思想
+
+本 repo 是用 Expectimax Search 实现的，当然这个问题还有其他的解法，这里也稍微提及一下算法思想，对应的是算法二和算法三，但是不用代码实现了。
+
+## 一. Expectimax Search Trees 最大期望搜索树
 
 在日常生活中，有些情况下，我们经过深思熟虑也不能判断这个抉择会导致什么样的结果？是好还是坏？
 
@@ -80,7 +140,7 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 
 **这类问题也可以被归结为 Markov Decision Processes 马尔科夫决策过程，根据当前棋面状态，确定下一步动作。**
 
-## Expectimax 最大期望值的一些特性
+### 1. Expectimax 最大期望值的一些特性
 
 其他的节点也并非是敌对的节点，它们也不受我们控制。原因就是因为它们的未知性。我们并不知道这些节点会导致发生什么。
 
@@ -89,7 +149,7 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 机会节点是由加权平均值概率管理的，而不是一味的选择最小值。
 
 
-## 举例
+### 2. 举例
 
 举个例子：
 
@@ -102,7 +162,7 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 ```
 
 
-## 关于剪枝
+### 3. 关于剪枝
 
 **在 expectimax 中不存在剪枝的概念**。
 
@@ -110,16 +170,7 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 
 
 
-
-## 效用函数 Utilities
-
-在 minimax search 极大极小值搜索中，效用函数 Utilities 的缩放比例并不重要。我们只是希望能获取到更好的状态以致于获得更高的分数。（这种行为也被称为单调变换不敏感性）
-
-
-在 Expectimax Search 期望最大值搜索中，效用函数 Utilities 一定要给定一个有意义的值能比较出大小，因为这里对大小极为敏感。
-
-
-## 概率函数
+### 4. 概率函数
 
 在 Expectimax Search 期望最大值搜索中，我们有一个在任何状态下对手行为的概率模型。这个模型可以是简单的均匀分布（例如掷骰子），模型也可能是复杂的，需要经过大量计算才能得到一个概率。
 
@@ -154,7 +205,7 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 
 
 
-## 数学理论
+### 5. 数学理论
 
 在概率论和统计学中，数学期望(mean)（或均值，亦简称期望）是试验中每次可能结果的概率乘以其结果的总和，是最基本的数学特征之一。它反映随机变量平均取值的大小。
 
@@ -168,14 +219,14 @@ https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf
 
 
 
-# Minimax search 极小极大值搜索
+## 二. Minimax search 极小极大值搜索
 
 
 冯·诺依曼于 1928 年提出的极小化极大理论（minimax）为之后的对抗性树搜索方法铺平了道路，而这些在计算机科学和人工智能刚刚成立的时候就成为了决策理论的根基。
 
 https://github.com/rianhunter/threes-solver
 
-# Monte Carlo tree search 蒙特卡洛树搜索
+## 三. Monte Carlo tree search 蒙特卡洛树搜索
 
 蒙特卡洛方法通过随机采样解决问题，随后在 20 世纪 40 年代，被作为了一种解决模糊定义问题而不适合直接树搜索的方法。Rémi Coulomb 于 2006 年将这两种方法结合，来提供一种新的方法作为围棋中的移动规划，如今称为蒙特卡洛树搜索（MCTS）。理论上 MCTS 可以应用于任何能够以 {状态，动作} 形式描述，通过模拟来预测结果的领域。
 
