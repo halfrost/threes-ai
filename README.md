@@ -129,7 +129,7 @@ meteor
 
 再谈谈本地如何打包 docker 镜像。
 
-先打包 go server，由于 docker 内部是 linux 的，所以在打包的时候要注意交叉编译，否则最终的 docker 无法执行。具体打包步骤请见 Dockerfile_go 这个文件里面的步骤了。
+先打包 go server，由于 docker 内部是 linux 的，所以在打包的时候要注意交叉编译，否则最终的 docker 无法执行。具体打包步骤请见 Dockerfile\_go 这个文件里面的步骤了。
 
 ```
 
@@ -161,7 +161,7 @@ ROOT_URL=http://127.0.0.1 PORT=9888 node main.js
 
 这时候 web 也会被跑在 http://127.0.0.1:9888 上。注意这里 node 的版本必须是 8.9.4 。node 的版本要求是 meteor 版本要求的。meteor 1.6 就是对应的 node 8.9.4 。笔者也在 .nvmrc 文件中限制了 node 版本信息。言归正传，再回到打包 web docker 镜像的问题上来。
 
-之后打包成 docker 镜像的步骤就请看 Dockerfile_web 这个文件里面的步骤了。
+之后打包成 docker 镜像的步骤就请看 Dockerfile\_web 这个文件里面的步骤了。
 
 ```
 
@@ -259,6 +259,17 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 
 在客户端上就存在“跳级”的设定，就可能一段时间就会出现这些砖块。我在测试 AI 的时候也发现了这个问题，被连续来单个的 1 或者连续的来单个的 2 逼死的几率不大，倒是被高分大砖块逼死的情况很多，这样导致存活时间不长，分数也没有网页版的高。
 
+关于游戏布局，确实是有技巧可言。
+
+<p align='center'>
+<img src='./threes!/image/example/example_0.png'>
+</p>
+
+
+<p align='center'>
+<img src='./threes!/image/example/example_1.png'>
+</p>
+
 
 # 算法思想
 
@@ -340,15 +351,34 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 大数定律规定，随着重复次数接近无穷大，数值的算术平均值几乎肯定地收敛于期望值。
 
 
-https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf
+### 5. 具体
+
+
+<p align='center'>
+<img src='./threes!/image/example/example_tree_0.png'>
+</p>
+
+<p align='center'>
+<img src='./threes!/image/example/example_tree_1.png'>
+</p>
+
+
+> Reference:
+
+> [1]:[ExpectimaxSearch](https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf)
+
+> [2]:[What is the optimal algorithm for the game 2048?](https://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048/22498940#22498940)
+
+
 
 
 
 
 ## 二. Minimax search 极小极大值搜索
 
-
 冯·诺依曼于 1928 年提出的极小化极大理论（minimax）为之后的对抗性树搜索方法铺平了道路，而这些在计算机科学和人工智能刚刚成立的时候就成为了决策理论的根基。
+
+详情见下面这个 repo :
 
 https://github.com/rianhunter/threes-solver
 
@@ -366,7 +396,6 @@ https://github.com/rianhunter/threes-solver
 <p align='center'>
 <img src='./threes!/image/mcts.gif'>
 </p>
-
 
 
 蒙特卡罗树搜索大概可以被分成四步。选择(Selection)，拓展(Expansion)，模拟(Simulation)，反向传播(Backpropagation)。
@@ -396,11 +425,11 @@ https://github.com/rianhunter/threes-solver
 
 从这里我们可以看出 蒙特卡洛树搜索 一种启发式的搜索策略，它利用了频率去估算了概率，当样本的频率采集足够多的时候，频率近似于概率。就相当于我们随机抛硬币，只要抛的次数足够多，那么，正面朝上的频率会无限接近于 0.5。
 
-Reference:
+> Reference:
 
-[1]:Browne C B, Powley E, Whitehouse D, et al. A Survey of Monte Carlo Tree Search Methods[J]. IEEE Transactions on Computational Intelligence & Ai in Games, 2012, 4:1(1):1-43.
+> [1]:Browne C B, Powley E, Whitehouse D, et al. A Survey of Monte Carlo Tree Search Methods[J]. IEEE Transactions on Computational Intelligence & Ai in Games, 2012, 4:1(1):1-43.
 
-[2]:P. Auer, N. Cesa-Bianchi, and P. Fischer, “Finite-time Analysis  of the Multiarmed Bandit Problem,” Mach. Learn., vol. 47, no. 2,  pp. 235–256, 2002.
+> [2]:P. Auer, N. Cesa-Bianchi, and P. Fischer, “Finite-time Analysis  of the Multiarmed Bandit Problem,” Mach. Learn., vol. 47, no. 2,  pp. 235–256, 2002.
 
 
 # To-Do
