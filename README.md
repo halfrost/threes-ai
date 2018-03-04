@@ -365,9 +365,9 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 
 > Reference:
 > 
-> [1]:[ExpectimaxSearch](https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf)
+> \[1\]:[ExpectimaxSearch](https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf)
 >
-> [2]:[What is the optimal algorithm for the game 2048?](https://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048/22498940#22498940)
+> \[2\]:[What is the optimal algorithm for the game 2048?](https://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048/22498940#22498940)
 
 
 
@@ -427,9 +427,9 @@ https://github.com/rianhunter/threes-solver
 
 > Reference:
 >
-> [1]:Browne C B, Powley E, Whitehouse D, et al. A Survey of Monte Carlo Tree Search Methods[J]. IEEE Transactions on Computational Intelligence & Ai in Games, 2012, 4:1(1):1-43.
+> \[1\]:Browne C B, Powley E, Whitehouse D, et al. A Survey of Monte Carlo Tree Search Methods[J]. IEEE Transactions on Computational Intelligence & Ai in Games, 2012, 4:1(1):1-43.
 >
-> [2]:P. Auer, N. Cesa-Bianchi, and P. Fischer, “Finite-time Analysis  of the Multiarmed Bandit Problem,” Mach. Learn., vol. 47, no. 2,  pp. 235–256, 2002.
+> \[2\]:P. Auer, N. Cesa-Bianchi, and P. Fischer, “Finite-time Analysis  of the Multiarmed Bandit Problem,” Mach. Learn., vol. 47, no. 2,  pp. 235–256, 2002.
 
 
 # To-Do
