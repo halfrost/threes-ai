@@ -83,13 +83,11 @@
 
 ```go
 
-
 // 先把 go 服务端跑起来，端口是 9000
 docker container run --rm -p 9000:9000 -it halfrost/threes-ai:go-0.0.1
 
 // 再把 web 前端跑起来，http://127.0.0.1:9888
 docker container run --rm -p 9888:9888 -it halfrost/threes-ai:web-0.0.1
-
 
 ```
 
@@ -99,12 +97,11 @@ docker container run --rm -p 9888:9888 -it halfrost/threes-ai:web-0.0.1
 
 先构建 go server：
 
-```
+```go
 
 // 回到项目主目录
 cd threes-ai
 go run main.go
-
 
 ```
 
@@ -114,12 +111,11 @@ go run main.go
 
 由于项目是基于 meteor 的，所以请先配置好 meteor 的本地环境，安装 meteor [手册链接](https://www.meteor.com/install)
 
-```
+```go
 
 // 进入 threes! web 主目录
 cd threes-ai/threes!
 meteor 
-
 
 ```
 
@@ -131,7 +127,7 @@ meteor
 
 先打包 go server，由于 docker 内部是 linux 的，所以在打包的时候要注意交叉编译，否则最终的 docker 无法执行。具体打包步骤请见 Dockerfile\_go 这个文件里面的步骤了。
 
-```
+```go
 
 docker image build -t threes_go:0.0.1 .
 docker container run --rm -p 9000:9000 -it threes_go:0.0.1
@@ -140,11 +136,10 @@ docker container run --rm -p 9000:9000 -it threes_go:0.0.1
 
 再打包 web：
 
-```
+```go
 
 cd threes-ai/threes!
 meteor build ./dist
-
 
 ```
 
@@ -152,7 +147,7 @@ meteor build ./dist
 
 此时也可以在本地把这个生产环境的 web 跑起来。使用如下命令：
 
-```
+```go
 
 cd dist/bundle
 ROOT_URL=http://127.0.0.1 PORT=9888 node main.js
@@ -163,7 +158,7 @@ ROOT_URL=http://127.0.0.1 PORT=9888 node main.js
 
 之后打包成 docker 镜像的步骤就请看 Dockerfile\_web 这个文件里面的步骤了。
 
-```
+```go
 
 docker image build -t threes_web:0.0.1 .
 docker container run --rm -p 9888:9888 -it threes_web:0.0.1
@@ -181,7 +176,6 @@ docker container run --rm -p 9888:9888 -it threes_web:0.0.1
 
 go build -buildmode=c-shared -o threes.so main.go
 
-
 ```
 
 上述命令把 go 打包成了 threes.so 动态库。
@@ -195,12 +189,11 @@ sudo /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-deb
 
 python threes_ai_web.py -b chrome -p 9162
 
-
 ```
 
 有时候不加 sudo 命令的话，可能出现一些异常，比如 GPU 分配失败。
 
-```
+```go
 
 已在现有的浏览器会话中创建新的窗口。
 [29819:45571:0225/225036.004108:ERROR:browser_gpu_channel_host_factory.cc(121)] Failed to launch GPU process.
@@ -209,7 +202,7 @@ python threes_ai_web.py -b chrome -p 9162
 
 遇到上面的错误，把 Chrome 完全退出，再执行 `--remote-debugging-port=9162` 即可。一般会建立新的 websocket 连接，例如：
 
-```
+```go
 
 DevTools listening on ws://127.0.0.1:9162/devtools/browser/86c6deb3-3fc1-4833-98ab-0177ec50f1fa
 
@@ -238,7 +231,7 @@ DevTools listening on ws://127.0.0.1:9162/devtools/browser/86c6deb3-3fc1-4833-98
 笔者在部署的时候就出现了上述的问题，先通过 iptables 检测，发现没有问题。第二种可能就是不支持 wss 了，通过 openssl 命令检测端口：
 
 
-```
+```go
 
 openssl s_client [-connect host:port>] [-verify depth] [-cert filename] [-key filename] 
  [-CApath directory] [-CAfile filename][-reconnect] [-pause] [-showcerts] [-debug] [-msg] 
@@ -321,6 +314,7 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 举个例子：计算去机场的时间。行李的重量会影响到行车时间。
 
 ```
+
 L（无）= 20，L（轻）= 30，L（重）= 60
 
 ```
@@ -331,7 +325,6 @@ L（无）= 20，L（轻）= 30，L（重）= 60
 
 P（T）= {none：0.25，light：0.5，heavy：0.25}
 
-
 ```
 
 那么预计驾车时间记为 
@@ -340,7 +333,6 @@ P（T）= {none：0.25，light：0.5，heavy：0.25}
 
 E [L（T）] =  L（无）* P（无）+ L（轻）* P（轻）+ L（重）* P (重)
 E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
-
 
 ```
 
