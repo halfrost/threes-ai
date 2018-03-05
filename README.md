@@ -261,6 +261,8 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 
 关于游戏布局，确实是有技巧可言。
 
+游戏的布局是以单调性为最优布局，见下面两张图：
+
 <p align='center'>
 <img src='./threes!/image/example/example_0.png'>
 </p>
@@ -270,6 +272,8 @@ Threes 的难点在于，这是一个**必输**的游戏。当游戏到了后半
 <img src='./threes!/image/example/example_1.png'>
 </p>
 
+
+可以看到，这两张图的布局是最好的，因为相邻的砖块通过合成以后可以继续合成更高一级的，这样合成速度也最快。能达到最快消除棋盘上的砖块。如果没有按照类似这种单调性来布局的话，那么常常最后都是因为自己布局混乱，导致一些砖块无法合成，最终被自己活活的“逼死”了。
 
 # 算法思想
 
@@ -353,6 +357,7 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 
 ### 5. 具体
 
+下面来谈谈具体的思路。
 
 <p align='center'>
 <img src='./threes!/image/example/example_tree_0.png'>
@@ -362,14 +367,64 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 <img src='./threes!/image/example/example_tree_1.png'>
 </p>
 
+从上面两张图可以看出，针对每种情况，都可以出现 4 种操作，每种操作都会出现新的砖块，新的砖块出现的位置都是一个稳定的概率。针对每一种情况都进行期望值的计算。于是就会出现上述的树状的结构了。
+
+举个更加详尽的例子，如下图，假设当前的棋盘情况如下：
+
 
 <p align='center'>
 <img src='./threes!/image/example/0.png'>
 </p>
 
+下一个砖块是 2 。那么会出现在哪里呢？总共有 16 种情况。
+
 <p align='center'>
 <img src='./threes!/image/example/example_2.png'>
 </p>
+
+如果进行向上移动 UP 的操作，2 砖块出现的位置会有 4 种。
+如果进行向下移动 DOWN 的操作，2 砖块出现的位置会有 4 种。
+如果进行向左移动 LEFT 的操作，2 砖块出现的位置会有 4 种。
+如果进行向右移动 RIGHT 的操作，2 砖块出现的位置会有 4 种。
+
+得到这 16 种情况以后，接着继续往下递归。递归公式如下：
+
+![](http://latex.codecogs.com/gif.latex?\score(G) = \\sum E(G)= \\sum P(G',G)  *  MAX (score(G \\rightarrow D)))
+
+上面公式就是不断进行期望值的计算。
+
+
+但是递归不能无限的递归，递归需要临界条件。我这里设置的收敛条件是当概率小于某个值的时候就算递归结束了。这个值具体是多少可以根据递归的层次去选一个合适的值。
+
+递归收敛以后，就开始计算本次的期望，这个期望值是由权重矩阵和棋盘矩阵相乘得到的值。权重矩阵里面的值也是需要自己调整的，调整的不好会导致递归层次很多，影响效率；递归层次太少，又会影响期望结果计算的准确性。这个权重矩阵的“调教”也许可以交给机器学习的无监督学习去做。
+
+![](http://latex.codecogs.com/gif.latex?\score(G) = \\sum E(G) = \\sum P(G',G)  *  MAX (\\prod\\left \\| W*G' \\right \\| ))
+
+上述公式就是递归收敛条件下的期望值计算公式。
+
+通过上述期望值递归计算以后，可以回归到初始状态。那么怎么决定究竟是往哪个方向移动呢？
+
+和上面举的去机场的例子一样，计算好各条路线的期望值。这里计算好最大期望值以后，再求一个均值就好了，值最大的就是下一步需要移动的方向。
+
+![](http://latex.codecogs.com/gif.latex?\Dir(G) = AVG  \\cdot  MAX (score(G \\rightarrow D)))
+
+
+不过在实际递归过程是会出现下面这种情况：
+
+
+<p align='center'>
+<img src='./threes!/image/example/example_3.png'>
+</p>
+
+
+大面积的空白区域，这样需要递归的次数会很多，间接的导致计算量变的很大，AI 思考一次的时间变长了。解决这个问题的办法就是限制递归深度。
+
+利用样本方差来评估均值：
+
+![](https://gss2.bdstatic.com/9fo3dSag_xI4khGkpoWK1HF6hhy/baike/s%3D328/sign=0bb42544fd03738dda4a0a208b1ab073/a8ec8a13632762d045b6fe5babec08fa503dc64e.jpg)
+
+
+S 越大表示样本和均值差异越大，越分散。间接的通过它来限制一下递归深度。
 
 
 > Reference:
@@ -377,6 +432,8 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 > \[1\]:[ExpectimaxSearch](https://web.uvic.ca/~maryam/AISpring94/Slides/06_ExpectimaxSearch.pdf)
 >
 > \[2\]:[What is the optimal algorithm for the game 2048?](https://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048/22498940#22498940)
+> 
+> \[3\]:[2048 AI – The Intelligent Bot](https://codemyroad.wordpress.com/2014/05/14/2048-ai-the-intelligent-bot/)
 
 
 
@@ -389,7 +446,7 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 
 详情见下面这个 repo :
 
-https://github.com/rianhunter/threes-solver
+[https://github.com/rianhunter/threes-solver](https://github.com/rianhunter/threes-solver)
 
 ## 三. Monte Carlo tree search 蒙特卡洛树搜索
 
@@ -443,5 +500,5 @@ https://github.com/rianhunter/threes-solver
 
 # To-Do
 
-本来以为这个项目就这样终结了，结果近几天阿里发布了 “黄皮书” 以后，突然觉得有了新的思路，如果有时间，我会完成第二版的。希望更加智能的 AI 能完成 12288 的最高成就。
+本来以为这个项目就这样终结了，结果近几天阿里发布了 “黄皮书” 以后，突然觉得有了新的思路，我决定继续用增强学习来完成第二版的。希望更加智能的 AI 能 100% 完成 12288 的最高成就。等训练完成以后，我会回来继续完成接下来的文章。
 
