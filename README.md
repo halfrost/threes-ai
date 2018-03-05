@@ -381,7 +381,7 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 
 得到这 16 种情况以后，接着继续往下递归。递归公式如下：
 
-![](http://latex.codecogs.com/gif.latex?\score(G)=\\sum%20E(G)=%20\\sum%20P(G',G)%20*%20MAX%20(score(G%20\\rightarrow%20D)))
+![](http://latex.codecogs.com/gif.latex?score(G)%20=%20\\sum%20E(G)=%20\\sum%20P(G',G)%20*%20MAX%20(score(G%20\\rightarrow%20D)))
 
 上面公式就是不断进行期望值的计算。
 
@@ -390,7 +390,7 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 
 递归收敛以后，就开始计算本次的期望，这个期望值是由权重矩阵和棋盘矩阵相乘得到的值。权重矩阵里面的值也是需要自己调整的，调整的不好会导致递归层次很多，影响效率；递归层次太少，又会影响期望结果计算的准确性。这个权重矩阵的“调教”也许可以交给机器学习的无监督学习去做。
 
-![](http://latex.codecogs.com/gif.latex?\score(G)%20=%20\\sum%20E(G)%20=%20\\sum%20P(G',G)%20*%20MAX%20(%20\\prod\\left%20\\|%20W*G'%20\\right%20\\|%20))
+![](http://latex.codecogs.com/gif.latex?score(G)%20=%20\\sum%20E(G)%20=%20\\sum%20P(G',G)%20*%20MAX%20(%20\\prod\\left%20\\|%20W*G'%20\\right%20\\|%20))
 
 上述公式就是递归收敛条件下的期望值计算公式。
 
@@ -399,7 +399,7 @@ E [L（T）] =  20 * 0.25）+（30 * 0.5）+（60 * 0.25）= 35
 和上面举的去机场的例子一样，计算好各条路线的期望值。这里计算好最大期望值以后，再求一个均值就好了，值最大的就是下一步需要移动的方向。
 
 
-![](http://latex.codecogs.com/gif.latex?\Dir(G)%20=%20AVG%20\\cdot%20MAX%20(score(G%20\\rightarrow%20D)))
+![](http://latex.codecogs.com/gif.latex?Dir(G)%20=%20AVG%20\\cdot%20MAX%20(score(G%20\\rightarrow%20D)))
 
 
 不过在实际递归过程是会出现下面这种情况：
