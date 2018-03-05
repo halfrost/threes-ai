@@ -6,7 +6,6 @@ import (
 
 	"github.com/halfrost/threes-ai/gameboard"
 )
-import "C"
 
 const (
 	lostPenaltyWeight       = 10000.0
