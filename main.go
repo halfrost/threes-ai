@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/halfrost/threes-ai/ai"
@@ -90,6 +91,10 @@ func compute(w http.ResponseWriter, r *http.Request) {
 		result := make(map[string]int, 0)
 		result["dire"] = move
 		p, _ = json.Marshal(result)
+
+		// control speed
+		time.Sleep(160 * time.Millisecond)
+
 		if err := conn.WriteMessage(messageType, p); err != nil {
 			break
 		}
