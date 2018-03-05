@@ -189,14 +189,6 @@ func insertHeurSearch(gameStateMaster *GameState, board [][]int, candidate []int
 		}
 	}
 
-	// if gameStateMaster.CurrentDept < utils.CacheDeptLevel {
-	// b := gameStateMaster.CacheScore[stream]
-	// if b != 0 {
-	// 	gameStateMaster.CacheHint++
-	// 	return b
-	// }
-	// }
-
 	var best float64
 	best = 0
 	gameStateMaster.CurrentDept++
@@ -296,8 +288,7 @@ func deptLevel(board [][]int) int {
 		fmt.Printf("初始的dept = %v\n", dept)
 	}
 	maxE, maxIndexi, maxIndexj := gameboard.MaxElement(board)
-	qua := gameboard.TestVariance(board, maxIndexi, maxIndexj)
-	//qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
+	qua := gameboard.CalculateVariance(board, maxIndexi, maxIndexj)
 	if debug {
 		fmt.Printf("qua = %d", qua)
 	}

@@ -1,7 +1,6 @@
 package gameboard
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -401,7 +400,7 @@ func CalculateVariance(board [][]int, maxIndexi int, maxIndexj int) int {
 		break
 	}
 
-	fmt.Printf("qua = %v requad = %v\n", quad, requad)
+	//fmt.Printf("qua = %v requad = %v\n", quad, requad)
 	total := 0
 	for index := 0; index < len(quad); index++ {
 		total += quad[index] + requad[index]
