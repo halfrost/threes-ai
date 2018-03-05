@@ -7,8 +7,6 @@ import (
 	"github.com/halfrost/threes-ai/utils"
 )
 
-import "C"
-
 // GameState define
 type GameState struct {
 	MaxElement  int
