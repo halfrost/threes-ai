@@ -4,6 +4,7 @@
 
 <p align='center'>
 🤖 AI for the Threes! game. 🎮
+<img src="https://visitor-badge.glitch.me/badge?page_id=halfrost.threes-ai">
 </p>
 
 # 灵感来源
