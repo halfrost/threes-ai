@@ -3,9 +3,11 @@
 </p>
 
 <p align='center'>
-🤖 AI for the Threes! game. 🎮
-<img src="https://visitor-badge.glitch.me/badge?page_id=halfrost.threes-ai">
+🤖 AI for the Threes! game. 🎮 <br>
+<img src="https://visitor-badge.laobi.icu/badge?page_id=halfrost.threes-ai">
 </p>
+
+Web Live Demo 地址在 [这里](https://threes.halfrost.com) 
 
 # 灵感来源
 
