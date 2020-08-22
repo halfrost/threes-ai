@@ -511,3 +511,9 @@ S 越大表示样本和均值差异越大，越分散。间接的通过它来限
 
 本来以为这个项目就这样终结了，结果近几天阿里发布了 “黄皮书” 以后，突然觉得有了新的思路，我决定继续用增强学习来完成第二版的。希望更加智能的 AI 能 100% 完成 12288 的最高成就。等训练完成以后，我会回来继续完成接下来的文章。
 
+# ♥️ Thanks
+
+If you like this project, welcome Star!
+
+
+[![Stargazers over time](https://starchart.cc/halfrost/threes-ai.svg)](https://starchart.cc/halfrost/threes-ai)
