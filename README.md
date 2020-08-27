@@ -7,6 +7,16 @@
 <img src="https://visitor-badge.laobi.icu/badge?page_id=halfrost.threes-ai">
 </p>
 
+<p align="center">
+<a href="https://github.com/halfrost/threes-ai/blob/master/LICENSE"><img alt="GitHub" src="https://img.shields.io/github/license/halfrost/threes-ai?label=License"></a>
+<a href="https://halfrost.com"><img src="https://img.shields.io/badge/Blog-Halfrost--Field-80d4f9.svg?style=flat"></a>
+<a href="http://weibo.com/halfrost"><img src="https://img.shields.io/badge/weibo-@halfrost-f974ce.svg?style=flat&colorA=f4292e"></a>
+<a href="https://twitter.com/halffrost"><img src="https://img.shields.io/badge/twitter-@halffrost-F8E81C.svg?style=flat&colorA=009df2"></a>
+<a href="https://www.zhihu.com/people/halfrost/activities"><img src="https://img.shields.io/badge/%E7%9F%A5%E4%B9%8E-@halfrost-fd6f32.svg?style=flat&colorA=0083ea"></a>
+<img src="https://img.shields.io/badge/made%20with-=1-red.svg">
+<a href="https://github.com/halfrost/threes-ai/pulls"><img src="https://img.shields.io/badge/PR-Welcome-brightgreen.svg"></a>
+</p>
+
 Web Live Demo 地址在 [这里](https://threes.halfrost.com) 
 
 # 灵感来源
