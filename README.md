@@ -100,10 +100,10 @@ Web Live Demo 地址在 [这里](https://threes.halfrost.com)
 ```go
 
 // 先把 go 服务端跑起来，端口是 9000
-docker container run --rm -p 9000:9000 -it halfrost/threes-ai:go-0.0.1
+docker container run --rm -p 9000:9000 -it halfrost/threes-ai:go-0.0.1 &
 
 // 再把 web 前端跑起来，http://127.0.0.1:9888
-docker container run --rm -p 9888:9888 -it halfrost/threes-ai:web-0.0.1
+docker container run --rm -p 9888:9888 -it halfrost/threes-ai:web-0.0.1 &
 
 ```
 
