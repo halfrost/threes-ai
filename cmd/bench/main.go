@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -39,9 +41,14 @@ type GameResult struct {
 	DurationMs int64 `json:"duration_ms"`
 }
 
-// playGame runs one full game driven by the current AI and returns its result.
-func playGame(seed int64, maxMoves int, bb, deckAware bool) GameResult {
+// playGame runs one full game driven by the current AI. When record is true it
+// also returns the full replay (nil otherwise).
+func playGame(seed int64, maxMoves int, bb, deckAware, record bool) (GameResult, *engine.Replay) {
 	g := engine.NewGame(seed)
+	var rec *engine.Replay
+	if record {
+		rec = &engine.Replay{Seed: seed, Agent: "expectimax", DepthCap: ai.MaxDepthCap}
+	}
 	start := time.Now()
 	engine.Play(g, func(gg *engine.Game) int {
 		cand := gameboard.FindCandidates(gg.Board)
@@ -52,14 +59,14 @@ func playGame(seed int64, maxMoves int, bb, deckAware bool) GameResult {
 			return ai.ExpectSearchBB(engine.PackBoard(gg.Board), cand, []int{gg.Next})
 		}
 		return ai.ExpectSearch(gg.Board, cand, []int{gg.Next})
-	}, nil, maxMoves)
+	}, rec, maxMoves)
 	return GameResult{
 		Seed:       seed,
 		Score:      g.Score(),
 		MaxTile:    g.MaxTile(),
 		Moves:      g.Moves,
 		DurationMs: time.Since(start).Milliseconds(),
-	}
+	}, rec
 }
 
 func main() {
@@ -73,6 +80,7 @@ func main() {
 	out := flag.String("out", "", "optional per-game JSONL output path")
 	logPath := flag.String("log", "results/summaries.jsonl", "append a one-line JSON run summary here (blank to disable)")
 	label := flag.String("label", "", "optional label for this run in the summary log")
+	record := flag.String("record", "", "if set, keep the single highest-score replay in this dir (record_<score>.json), discard the rest")
 	flag.Parse()
 
 	ai.MaxDepthCap = *depthCap
@@ -80,6 +88,7 @@ func main() {
 
 	fmt.Printf("Running %d games, %d workers, base seed %d...\n", *n, *workers, *seed)
 	results := make([]GameResult, *n)
+	rec := newRecorder(*record)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, *workers)
 	var done int64
@@ -90,7 +99,9 @@ func main() {
 		go func(idx int) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results[idx] = playGame(*seed+int64(idx), *maxMoves, *bb, *deckAware)
+			res, replay := playGame(*seed+int64(idx), *maxMoves, *bb, *deckAware, rec.enabled())
+			results[idx] = res
+			rec.offer(res.Score, replay)
 			if d := atomic.AddInt64(&done, 1); d%10 == 0 || int(d) == *n {
 				fmt.Printf("  %d/%d done (%.0fs elapsed)\n", d, *n, time.Since(wallStart).Seconds())
 			}
@@ -99,6 +110,7 @@ func main() {
 	wg.Wait()
 	wall := time.Since(wallStart)
 	report(results, wall)
+	rec.report()
 
 	engineName := "slice"
 	if *bb {
@@ -300,6 +312,91 @@ func writeJSONL(path string, results []GameResult) error {
 	for _, r := range results {
 		if err := enc.Encode(r); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// recorder keeps only the single highest-score replay across a run — and across
+// runs, persisted as <dir>/record_<score>.json. A new record is written to disk
+// immediately when beaten (mutex-guarded) and the previous record file removed,
+// so non-record games are simply discarded.
+type recorder struct {
+	dir  string
+	mu   sync.Mutex
+	best int
+	set  bool
+}
+
+func newRecorder(dir string) *recorder {
+	r := &recorder{dir: dir}
+	if dir != "" {
+		r.best = existingRecordScore(dir)
+	}
+	return r
+}
+
+func (r *recorder) enabled() bool { return r != nil && r.dir != "" }
+
+func (r *recorder) offer(score int, replay *engine.Replay) {
+	if !r.enabled() || replay == nil || score <= r.best {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if score <= r.best { // re-check under lock
+		return
+	}
+	if err := writeRecord(r.dir, score, replay); err != nil {
+		fmt.Fprintf(os.Stderr, "write record: %v\n", err)
+		return
+	}
+	r.best = score
+	r.set = true
+}
+
+func (r *recorder) report() {
+	if !r.enabled() {
+		return
+	}
+	if r.set {
+		fmt.Printf("New high-score replay: %s (score %d)\n",
+			filepath.Join(r.dir, fmt.Sprintf("record_%d.json", r.best)), r.best)
+	} else {
+		fmt.Printf("No new record this run (existing record score %d not beaten)\n", r.best)
+	}
+}
+
+// existingRecordScore reads the highest score encoded in <dir>/record_<score>.json.
+func existingRecordScore(dir string) int {
+	matches, _ := filepath.Glob(filepath.Join(dir, "record_*.json"))
+	best := 0
+	for _, m := range matches {
+		name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(m), "record_"), ".json")
+		if v, err := strconv.Atoi(name); err == nil && v > best {
+			best = v
+		}
+	}
+	return best
+}
+
+// writeRecord writes the replay as <dir>/record_<score>.json and removes any
+// previous record file, so exactly one (the best) is kept.
+func writeRecord(dir string, score int, replay *engine.Replay) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	old, _ := filepath.Glob(filepath.Join(dir, "record_*.json"))
+	b, err := json.Marshal(replay)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("record_%d.json", score)), b, 0o644); err != nil {
+		return err
+	}
+	for _, f := range old { // remove previous record(s) after the new one is safely written
+		if filepath.Base(f) != fmt.Sprintf("record_%d.json", score) {
+			os.Remove(f)
 		}
 	}
 	return nil
