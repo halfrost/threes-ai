@@ -66,7 +66,9 @@ func main() {
 	maxMoves := flag.Int("maxmoves", 20000, "safety cap on moves per game")
 	depthCap := flag.Int("depthcap", 0, "clamp adaptive search depth (0=uncapped)")
 	bb := flag.Bool("bb", true, "use the bitboard search (faster; verified identical)")
-	out := flag.String("out", "", "optional JSONL output path")
+	out := flag.String("out", "", "optional per-game JSONL output path")
+	logPath := flag.String("log", "results/summaries.jsonl", "append a one-line JSON run summary here (blank to disable)")
+	label := flag.String("label", "", "optional label for this run in the summary log")
 	flag.Parse()
 
 	ai.MaxDepthCap = *depthCap
@@ -91,15 +93,113 @@ func main() {
 		}(i)
 	}
 	wg.Wait()
-	report(results, time.Since(wallStart))
+	wall := time.Since(wallStart)
+	report(results, wall)
+
+	engineName := "slice"
+	if *bb {
+		engineName = "bitboard"
+	}
+	if *logPath != "" {
+		s := summarize(results, wall, *label, engineName, *depthCap, *seed)
+		if err := appendSummary(*logPath, s); err != nil {
+			fmt.Fprintf(os.Stderr, "append summary: %v\n", err)
+		} else {
+			fmt.Printf("Run summary appended to %s\n", *logPath)
+		}
+	}
 
 	if *out != "" {
 		if err := writeJSONL(*out, results); err != nil {
 			fmt.Fprintf(os.Stderr, "write jsonl: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("\nPer-game JSONL written to %s\n", *out)
+		fmt.Printf("Per-game JSONL written to %s\n", *out)
 	}
+}
+
+// Summary is the one-line-per-run record appended to the experiment log.
+type Summary struct {
+	Date         string             `json:"date"`
+	Label        string             `json:"label,omitempty"`
+	Agent        string             `json:"agent"`
+	Engine       string             `json:"engine"`
+	DepthCap     int                `json:"depth_cap"`
+	Games        int                `json:"games"`
+	Seed         int64              `json:"seed"`
+	ScoreMean    float64            `json:"score_mean"`
+	ScoreMedian  int                `json:"score_median"`
+	ScoreP90     int                `json:"score_p90"`
+	ScoreP99     int                `json:"score_p99"`
+	ScoreMax     int                `json:"score_max"`
+	MovesPerGame float64            `json:"moves_per_game"`
+	MsPerMove    float64            `json:"ms_per_move"`
+	WallSec      float64            `json:"wall_sec"`
+	Reach        map[string]float64 `json:"reach"`
+}
+
+func summarize(results []GameResult, wall time.Duration, label, engineName string, depthCap int, seed int64) Summary {
+	n := len(results)
+	scores := make([]int, n)
+	var totalScore, totalMoves, totalMs int64
+	maxScore := 0
+	for i, r := range results {
+		scores[i] = r.Score
+		totalScore += int64(r.Score)
+		totalMoves += int64(r.Moves)
+		totalMs += r.DurationMs
+		if r.Score > maxScore {
+			maxScore = r.Score
+		}
+	}
+	sort.Ints(scores)
+	reach := map[string]float64{}
+	for _, m := range milestones {
+		cnt := 0
+		for _, r := range results {
+			if r.MaxTile >= m {
+				cnt++
+			}
+		}
+		reach[fmt.Sprintf("%d", m)] = float64(cnt) / float64(n)
+	}
+	return Summary{
+		Date:         time.Now().Format(time.RFC3339),
+		Label:        label,
+		Agent:        "expectimax",
+		Engine:       engineName,
+		DepthCap:     depthCap,
+		Games:        n,
+		Seed:         seed,
+		ScoreMean:    float64(totalScore) / float64(n),
+		ScoreMedian:  pct(scores, 50),
+		ScoreP90:     pct(scores, 90),
+		ScoreP99:     pct(scores, 99),
+		ScoreMax:     maxScore,
+		MovesPerGame: float64(totalMoves) / float64(n),
+		MsPerMove:    float64(totalMs) / float64(max64(totalMoves, 1)),
+		WallSec:      wall.Seconds(),
+		Reach:        reach,
+	}
+}
+
+func appendSummary(path string, s Summary) error {
+	if dir := filepath.Dir(path); dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	line, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(line, '\n'))
+	return err
 }
 
 func report(results []GameResult, wall time.Duration) {
