@@ -78,8 +78,34 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 
 ---
 
-## 4. Ablations (planned — Phase 1+)
-_deck-aware on/off; depth sweep 3/4/5/6; heuristic vs N-tuple leaf; beam on/off; TT on/off._
+## 4. Ablations
+
+### A1 — Deck-aware vs deck-blind (the "value of knowing the deck") ★ flagship result
+- Setup: Expectimax, bitboard, depth-cap 4, **50 games, paired seeds 1–50**. Only
+  variable: the `candidate` fed to the search — `FindCandidates` board
+  approximation (**deck-blind**) vs `Game.DeckCounts` true remaining bag (**deck-aware**).
+- `results/ablation_deckblind_d4.jsonl`, `results/ablation_deckaware_d4.jsonl`
+
+| metric | deck-blind | deck-aware | Δ |
+|---|---|---|---|
+| score mean | 209,633 | **262,348** | **+25.1%** |
+| score median | 187,800 | **246,165** | **+31.1%** |
+| score p90 | 277,410 | **600,201** | +116% |
+| score max | 793,014 | 745,299 | −6% (one lucky blind game; distribution clearly higher) |
+| 3072 reach | 54% | **74%** | **+20 pts** |
+| 6144 reach | 10% (5/50) | **14% (7/50)** | +4 pts (small-sample) |
+| 1536 reach | 92% | **100%** | early collapses eliminated |
+| moves/game | 1034 | 1177 | survives longer |
+
+- Takeaway: **using the true remaining bag instead of a board approximation is worth
+  ~+25% mean score and +20 points on the 3072 rate at equal search depth**, and it
+  removes early collapses (deck-blind died at 192/768 in a few games; deck-aware's
+  worst tile was 1536). The 6144 delta is positive but within 50-game noise — rerun
+  larger to firm it up. This is the paper's core novelty result.
+- Note: deck-blind here (50 games) sits a bit below B2 (30 games, 6144 13.3%) —
+  expected sampling difference; this 50-game paired run is the cleaner reference.
+
+_Planned: depth sweep 3/4/5/6; heuristic vs N-tuple leaf; beam on/off; TT on/off._
 
 ## 5. Training runs (planned — Phase 2/3)
 _N-tuple TD, multi-stage TD; DQN / PPO / AlphaZero-style. Log learning curves + hyperparameters._
