@@ -14,3 +14,7 @@ threes!/dist/
 
 # Generated results / experiment data / logs
 /results/
+
+# Python
+__pycache__/
+*.pyc

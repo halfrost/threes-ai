@@ -44,10 +44,10 @@ def _write_events(shell, events):
 
     try:
         for dev in dat:
-            s = ''.join('\\x%02x' % ord(c) for c in ''.join(dat[dev]))
+            s = ''.join('\\x%02x' % b for b in b''.join(dat[dev]))
             shell.execute("echo -ne '%s' > %s" % (s, dev))
     except ShellCommandException as e:
-        print "Warning: inputemu: adb echo failed (%s), falling back to sendevent" % e
+        print("Warning: inputemu: adb echo failed (%s), falling back to sendevent" % e)
         shell.use_sendevent = True
         _write_events(shell, events)
 
@@ -115,21 +115,21 @@ def record_gestures(shell, ident, gestlist):
 
     p = shell.popen('getevent -t', text=True, nonblocking=True)
 
-    print "Collecting device info..."
+    print("Collecting device info...")
     for line in readlines_timed(p.stdout, 0.2):
         pass
 
     skipdevs = set()
 
-    print "Collecting background events..."
+    print("Collecting background events...")
     for line in readlines_timed(p.stdout, 0.2):
         ts, dev, type, value, code = parse_getevent(line)
         if dev not in skipdevs:
-            print "Skipping device", dev
+            print("Skipping device", dev)
             skipdevs.add(dev)
 
     for gest in gestlist:
-        print "\aPlease do a %s gesture!" % gest
+        print("\aPlease do a %s gesture!" % gest)
 
         last = None
         start_ts = None
@@ -155,7 +155,7 @@ def record_gestures(shell, ident, gestlist):
             events.append((ts - start_ts, dev, type, value, code))
             last = time.time()
 
-        print "Captured!"
+        print("Captured!")
         with open(os.path.join(outdir, gest + '.txt'), 'w') as f:
             for ev in events:
                 f.write('%f %s %d %d %d\n' % ev)
@@ -179,7 +179,7 @@ def main(argv):
         record_gestures(shell, ident, args.gestures)
     else:
         for gest in args.gestures:
-            print "Playing back %s" % gest
+            print("Playing back %s" % gest)
             playback_gesture(shell, ident, gest)
             time.sleep(0.5)
 
