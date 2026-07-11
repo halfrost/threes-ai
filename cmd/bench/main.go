@@ -40,11 +40,14 @@ type GameResult struct {
 }
 
 // playGame runs one full game driven by the current AI and returns its result.
-func playGame(seed int64, maxMoves int, bb bool) GameResult {
+func playGame(seed int64, maxMoves int, bb, deckAware bool) GameResult {
 	g := engine.NewGame(seed)
 	start := time.Now()
 	engine.Play(g, func(gg *engine.Game) int {
 		cand := gameboard.FindCandidates(gg.Board)
+		if deckAware {
+			cand = gg.DeckCounts()
+		}
 		if bb {
 			return ai.ExpectSearchBB(engine.PackBoard(gg.Board), cand, []int{gg.Next})
 		}
@@ -66,6 +69,7 @@ func main() {
 	maxMoves := flag.Int("maxmoves", 20000, "safety cap on moves per game")
 	depthCap := flag.Int("depthcap", 0, "clamp adaptive search depth (0=uncapped)")
 	bb := flag.Bool("bb", true, "use the bitboard search (faster; verified identical)")
+	deckAware := flag.Bool("deckaware", false, "feed the true remaining bag (deck-aware) instead of the FindCandidates board approximation")
 	out := flag.String("out", "", "optional per-game JSONL output path")
 	logPath := flag.String("log", "results/summaries.jsonl", "append a one-line JSON run summary here (blank to disable)")
 	label := flag.String("label", "", "optional label for this run in the summary log")
@@ -86,7 +90,7 @@ func main() {
 		go func(idx int) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results[idx] = playGame(*seed+int64(idx), *maxMoves, *bb)
+			results[idx] = playGame(*seed+int64(idx), *maxMoves, *bb, *deckAware)
 			if d := atomic.AddInt64(&done, 1); d%10 == 0 || int(d) == *n {
 				fmt.Printf("  %d/%d done (%.0fs elapsed)\n", d, *n, time.Since(wallStart).Seconds())
 			}
@@ -101,7 +105,7 @@ func main() {
 		engineName = "bitboard"
 	}
 	if *logPath != "" {
-		s := summarize(results, wall, *label, engineName, *depthCap, *seed)
+		s := summarize(results, wall, *label, engineName, *depthCap, *seed, *deckAware)
 		if err := appendSummary(*logPath, s); err != nil {
 			fmt.Fprintf(os.Stderr, "append summary: %v\n", err)
 		} else {
@@ -124,6 +128,7 @@ type Summary struct {
 	Label        string             `json:"label,omitempty"`
 	Agent        string             `json:"agent"`
 	Engine       string             `json:"engine"`
+	DeckAware    bool               `json:"deck_aware"`
 	DepthCap     int                `json:"depth_cap"`
 	Games        int                `json:"games"`
 	Seed         int64              `json:"seed"`
@@ -138,7 +143,7 @@ type Summary struct {
 	Reach        map[string]float64 `json:"reach"`
 }
 
-func summarize(results []GameResult, wall time.Duration, label, engineName string, depthCap int, seed int64) Summary {
+func summarize(results []GameResult, wall time.Duration, label, engineName string, depthCap int, seed int64, deckAware bool) Summary {
 	n := len(results)
 	scores := make([]int, n)
 	var totalScore, totalMoves, totalMs int64
@@ -168,6 +173,7 @@ func summarize(results []GameResult, wall time.Duration, label, engineName strin
 		Label:        label,
 		Agent:        "expectimax",
 		Engine:       engineName,
+		DeckAware:    deckAware,
 		DepthCap:     depthCap,
 		Games:        n,
 		Seed:         seed,

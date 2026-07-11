@@ -64,6 +64,33 @@ func TestBonusRange(t *testing.T) {
 	}
 }
 
+func TestDeckCountsInvariants(t *testing.T) {
+	g := NewGame(7)
+	for k := 0; k < 2000; k++ {
+		dc := g.DeckCounts()
+		sum := dc[0] + dc[1] + dc[2]
+		// The pre-preview bag holds 1..12 base cards, each rank 0..4.
+		if sum < 1 || sum > 12 {
+			t.Fatalf("step %d: DeckCounts sum %d out of [1,12] (%v)", k, sum, dc)
+		}
+		for i, c := range dc {
+			if c < 0 || c > 4 {
+				t.Fatalf("step %d: DeckCounts[%d]=%d out of [0,4] (%v)", k, i, c, dc)
+			}
+		}
+		moved := false
+		for _, m := range []int{0, 1, 2, 3} {
+			if g.Step(m) {
+				moved = true
+				break
+			}
+		}
+		if !moved {
+			break
+		}
+	}
+}
+
 func TestDeterminism(t *testing.T) {
 	trace := func() []int {
 		g := NewGame(42)

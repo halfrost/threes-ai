@@ -160,3 +160,21 @@ func (g *Game) Score() int {
 
 // MaxTile returns the highest printed tile value on the board.
 func (g *Game) MaxTile() int { return ValueTable[g.maxIndex()] }
+
+// DeckCounts returns the ground-truth remaining bag as [ones, twos, threes],
+// counted as of *before* the current preview tile was drawn. This is the exact
+// "deck-aware" signal to feed the search as its candidate: the search decrements
+// the preview tile itself, so it expects the pre-preview distribution. Contrast
+// with gameboard.FindCandidates, which only approximates the deck from the board.
+func (g *Game) DeckCounts() []int {
+	c := []int{0, 0, 0}
+	for _, v := range g.bag {
+		if v >= 1 && v <= 3 {
+			c[v-1]++
+		}
+	}
+	if !g.NextBonus && g.Next >= 1 && g.Next <= 3 {
+		c[g.Next-1]++ // add the preview back: the search will decrement it
+	}
+	return c
+}
