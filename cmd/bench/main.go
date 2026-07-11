@@ -89,6 +89,24 @@ func main() {
 	fmt.Printf("Running %d games, %d workers, base seed %d...\n", *n, *workers, *seed)
 	results := make([]GameResult, *n)
 	rec := newRecorder(*record)
+
+	// Incremental per-game JSONL: each game is flushed as it finishes, so a run
+	// killed mid-way (e.g. by session teardown) still leaves the completed games.
+	var outMu sync.Mutex
+	var outEnc *json.Encoder
+	if *out != "" {
+		if dir := filepath.Dir(*out); dir != "" {
+			os.MkdirAll(dir, 0o755)
+		}
+		f, err := os.Create(*out)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "create out: %v\n", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		outEnc = json.NewEncoder(f)
+	}
+
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, *workers)
 	var done int64
@@ -102,6 +120,11 @@ func main() {
 			res, replay := playGame(*seed+int64(idx), *maxMoves, *bb, *deckAware, rec.enabled())
 			results[idx] = res
 			rec.offer(res.Score, replay)
+			if outEnc != nil {
+				outMu.Lock()
+				outEnc.Encode(res)
+				outMu.Unlock()
+			}
 			if d := atomic.AddInt64(&done, 1); d%10 == 0 || int(d) == *n {
 				fmt.Printf("  %d/%d done (%.0fs elapsed)\n", d, *n, time.Since(wallStart).Seconds())
 			}
@@ -126,10 +149,6 @@ func main() {
 	}
 
 	if *out != "" {
-		if err := writeJSONL(*out, results); err != nil {
-			fmt.Fprintf(os.Stderr, "write jsonl: %v\n", err)
-			os.Exit(1)
-		}
 		fmt.Printf("Per-game JSONL written to %s\n", *out)
 	}
 }
@@ -295,26 +314,6 @@ func max64(a, b int64) int64 {
 		return a
 	}
 	return b
-}
-
-func writeJSONL(path string, results []GameResult) error {
-	if dir := filepath.Dir(path); dir != "" {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
-		}
-	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
-	for _, r := range results {
-		if err := enc.Encode(r); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // recorder keeps only the single highest-score replay across a run — and across
