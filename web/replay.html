@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threes-AI Replay</title>
+<link href="https://fonts.googleapis.com/css?family=Nunito:300,400,700" rel="stylesheet">
+<style>
+  /* Palette lifted from the original threes! frontend (client/css/threes_js.less) */
+  :root {
+    --blue: #66CCFF; --red: #FF6680; --yellow: #FFCC66;
+    --dark-green: #B6D9D9; --light-green: #D0E6DF; --light-gray: #FAFAFA; --gray: #666E80;
+    --tw: 74px; --th: 98px;   /* tile width / height */
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--light-gray); color: #777E8C;
+    font-family: "Nunito", sans-serif; }
+  header { padding: 16px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    border-bottom: 1px solid #ececec; }
+  h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: 1px; color: var(--gray); }
+  h1 .b { color: var(--blue); } h1 .r { color: var(--red); }
+  .meta { color: var(--gray); font-size: 12.5px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .meta b { color: #444; font-weight: 700; }
+  button { font-family: inherit; background: var(--light-green); color: var(--gray);
+    box-shadow: 0 5px var(--dark-green); border: 0; border-radius: 8px; padding: 9px 14px;
+    font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #c2e0d7; }
+  button:active { transform: translateY(3px); box-shadow: 0 2px var(--dark-green); }
+  button.play { background: var(--blue); box-shadow: 0 5px #52a3cc; color: #fff; min-width: 92px; }
+  button.play:hover { background: #7ad0ff; }
+
+  main { display: flex; gap: 40px; padding: 28px 24px; flex-wrap: wrap; align-items: flex-start;
+    justify-content: center; }
+
+  .board { background: var(--light-green); border-radius: 12px; padding: 16px;
+    display: grid; grid-template-columns: repeat(4, var(--tw)); gap: 22px 10px; }
+  .cell { width: var(--tw); height: var(--th); border-radius: 9px; background: var(--dark-green);
+    box-shadow: 0 7px var(--dark-green); display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; }
+  .cell.empty { box-shadow: none; background: #c4e1d9; }
+  .cell.blue { background: var(--blue); box-shadow: 0 7px color-mix(in srgb, var(--blue), #000 22%); }
+  .cell.red  { background: var(--red);  box-shadow: 0 7px color-mix(in srgb, var(--red), #000 22%); }
+  .cell.white{ background: #fff; color: #333; box-shadow: 0 7px var(--yellow); }
+
+  .side { display: flex; flex-direction: column; gap: 18px; min-width: 230px; }
+  .card { background: #fff; border-radius: 12px; padding: 16px 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }
+  .kv { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; }
+  .kv span { color: var(--gray); font-size: 13px; }
+  .kv b { color: #333; font-weight: 700; }
+  .score { font-size: 34px; font-weight: 800; color: #444; letter-spacing: -1px; }
+  .arrow { font-size: 42px; text-align: center; color: var(--gray); height: 46px; line-height: 46px; }
+  .nextwrap { display: flex; align-items: center; gap: 10px; }
+  .nexttile { width: 46px; height: 60px; border-radius: 7px; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; color: #fff; background: var(--dark-green); box-shadow: 0 4px var(--dark-green); }
+  .nexttile.blue { background: var(--blue); box-shadow: 0 4px color-mix(in srgb, var(--blue), #000 22%); }
+  .nexttile.red  { background: var(--red);  box-shadow: 0 4px color-mix(in srgb, var(--red), #000 22%); }
+  .nexttile.white{ background: #fff; color: #333; box-shadow: 0 4px var(--yellow); }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .scrub { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .scrub span { color: var(--gray); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  input[type=range] { width: 100%; accent-color: var(--blue); }
+  .drop { margin: 30px 24px; border: 2px dashed var(--dark-green); border-radius: 12px; padding: 32px;
+    text-align: center; color: var(--gray); cursor: pointer; }
+  .drop.hot { border-color: var(--blue); background: #eef7fb; }
+  input[type=file] { display: none; }
+  .hint { color: #9aa3b0; font-size: 12px; }
+  code { background: #eef1f4; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>THREE<span class="b">S</span>-<span class="r">AI</span> · REPLAY</h1>
+  <div class="meta" id="meta"><span>No replay loaded</span></div>
+  <span style="flex:1"></span>
+  <label><input type="file" id="file" accept="application/json,.json">
+    <button onclick="document.getElementById('file').click()">Load replay JSON…</button></label>
+</header>
+
+<main id="app" style="display:none">
+  <div class="board" id="board"></div>
+  <div class="side">
+    <div class="card">
+      <div class="kv"><span>Score</span><b class="score" id="score">0</b></div>
+      <div class="kv"><span>Move</span><b id="movenum">0 / 0</b></div>
+      <div class="kv"><span>Direction</span><b id="dir">—</b></div>
+      <div class="arrow" id="arrow">·</div>
+      <div class="kv"><span>Next tile</span><span class="nextwrap"><span class="nexttile" id="next">·</span></span></div>
+    </div>
+    <div class="card">
+      <div class="controls">
+        <button onclick="go(0)" title="First">⏮</button>
+        <button onclick="step(-1)" title="Prev (←)">◀</button>
+        <button class="play" id="playbtn" onclick="toggle()">▶ Play</button>
+        <button onclick="step(1)" title="Next (→)">▶</button>
+        <button onclick="go(LAST)" title="Last">⏭</button>
+      </div>
+      <div class="scrub">
+        <span id="idxlbl">0</span>
+        <input type="range" id="scrub" min="0" max="0" value="0" oninput="go(+this.value)">
+        <span id="lastlbl">0</span>
+      </div>
+      <div class="scrub">
+        <span>Speed</span>
+        <input type="range" id="speed" min="1" max="60" value="12">
+        <span id="speedlbl">12/s</span>
+      </div>
+    </div>
+    <div class="hint">Generate one with
+      <code>go run ./cmd/replay -seed 1 -out results/replay.json</code></div>
+  </div>
+</main>
+
+<div id="empty" style="display:block">
+  <div class="drop" id="drop" onclick="document.getElementById('file').click()">
+    Drop a <b>replay JSON</b> here, or click to choose a file.
+  </div>
+</div>
+
+<script>
+let R = null, i = 0, LAST = 0, timer = null;
+const $ = id => document.getElementById(id);
+const ARROWS = { '0':'↑','1':'↓','2':'←','3':'→','-1':'⏹' };
+const DIRS   = { '0':'UP','1':'DOWN','2':'LEFT','3':'RIGHT','-1':'GAME OVER' };
+
+function tileClass(v) {
+  if (v === 0) return 'empty';
+  if (v === 1) return 'blue';
+  if (v === 2) return 'red';
+  return 'white';
+}
+function fontSize(v, base) {
+  const s = String(v).length;
+  if (s <= 2) return base;
+  if (s === 3) return Math.round(base * 0.82);
+  if (s === 4) return Math.round(base * 0.66);
+  return Math.round(base * 0.55);
+}
+
+function load(replay) {
+  R = replay; LAST = R.steps.length - 1; i = 0;
+  $('app').style.display = 'flex';
+  $('empty').style.display = 'none';
+  $('scrub').max = LAST; $('lastlbl').textContent = LAST;
+  $('meta').innerHTML =
+    `<span>seed <b>${R.seed}</b></span><span>agent <b>${R.agent}</b></span>` +
+    `<span>depth cap <b>${R.depth_cap || '—'}</b></span>` +
+    `<span>final <b>${R.final_score.toLocaleString()}</b></span>` +
+    `<span>max tile <b>${R.max_tile}</b></span><span>moves <b>${R.moves}</b></span>`;
+  render();
+}
+
+function render() {
+  const s = R.steps[i], vt = R.value_table, b = $('board');
+  b.innerHTML = '';
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+    const val = vt[s.board[r][c]];
+    const d = document.createElement('div');
+    d.className = 'cell ' + tileClass(val);
+    if (val !== 0) { d.textContent = val; d.style.fontSize = fontSize(val, 30) + 'px'; }
+    b.appendChild(d);
+  }
+  $('score').textContent = s.score.toLocaleString();
+  $('movenum').textContent = `${i} / ${LAST}`;
+  $('arrow').textContent = ARROWS[s.move];
+  $('dir').textContent = DIRS[s.move];
+  const nv = s.next >= 0 ? vt[s.next] : null;
+  const nx = $('next');
+  if (nv === null) { nx.textContent = '·'; nx.className = 'nexttile'; nx.style.fontSize = ''; }
+  else {
+    nx.textContent = nv >= 6 ? '+' + nv : nv;   // bonus tiles (>=6) can't come from the 1/2/3 bag
+    nx.className = 'nexttile ' + tileClass(nv);
+    nx.style.fontSize = fontSize(nv, 18) + 'px';
+  }
+  $('scrub').value = i; $('idxlbl').textContent = i;
+}
+
+function go(n) { i = Math.max(0, Math.min(LAST, n)); render(); }
+function step(d) { go(i + d); if (i === LAST) stop(); }
+function toggle() { timer ? stop() : play(); }
+function play() {
+  if (i >= LAST) i = 0;
+  $('playbtn').textContent = '⏸ Pause';
+  const tick = () => { if (i >= LAST) { stop(); return; } step(1); timer = setTimeout(tick, 1000 / (+$('speed').value)); };
+  tick();
+}
+function stop() { clearTimeout(timer); timer = null; $('playbtn').textContent = '▶ Play'; }
+
+$('speed').addEventListener('input', e => $('speedlbl').textContent = e.target.value + '/s');
+$('file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => load(JSON.parse(t))).catch(err => alert('Bad replay JSON: ' + err));
+});
+const drop = $('drop');
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('hot'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('hot'); }));
+drop.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  f.text().then(t => load(JSON.parse(t))).catch(err => alert('Bad replay JSON: ' + err));
+});
+document.addEventListener('keydown', e => {
+  if (!R) return;
+  if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === ' ') { e.preventDefault(); toggle(); }
+});
+const _p = new URLSearchParams(location.search).get('replay');
+if (_p) fetch(_p).then(r => r.json()).then(load).catch(err => console.warn('auto-load failed:', err));
+</script>
+</body>
+</html>

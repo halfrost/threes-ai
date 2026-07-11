@@ -21,13 +21,19 @@ const (
 	debug = false
 )
 
+// MaxDepthCap, when > 0, clamps the adaptive expectimax search depth. It exists
+// so full-game self-play stays tractable and so search depth can be treated as a
+// first-class experimental variable (strength vs. speed). 0 means "no cap"
+// (the original adaptive behaviour).
+var MaxDepthCap = 0
+
 // ExpectSearch find MaxScoreMove
 func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 
 	if debug {
 		fmt.Printf("【AI.Search】board = %v |candidate = %v | nextBrick = %v |\n", board, candidate, nextBrick)
 	}
-	moveScoreMap := make(map[int]float64, 0)
+	var moveScore [4]float64
 
 	ExpectScoreSearch := func(scoreChan chan float64, board [][]int, candidate []int, nextBrick []int, move int) {
 		scoreChan <- deptSearch(board, candidate, nextBrick, move)
@@ -39,22 +45,17 @@ func ExpectSearch(board [][]int, candidate []int, nextBrick []int) int {
 		go ExpectScoreSearch(scores[move], board, candidate, nextBrick, move)
 	}
 
-	var sc float64
 	for i := 0; i < 4; i++ {
-		select {
-		case sc = <-scores[i]:
-			{
-				moveScoreMap[i] = sc
-			}
-		}
+		moveScore[i] = <-scores[i]
 	}
 	var bestScore float64
-	var bestMove int
-	bestMove = -1
-	for key, value := range moveScoreMap {
-		if value > bestScore {
-			bestScore = value
-			bestMove = key
+	bestMove := -1
+	// Ordered argmax (ties -> lowest move index) so decisions are deterministic
+	// and directly comparable to the bitboard port.
+	for move := 0; move < 4; move++ {
+		if moveScore[move] > bestScore {
+			bestScore = moveScore[move]
+			bestMove = move
 		}
 	}
 	if debug {
@@ -292,6 +293,9 @@ func deptLevel(board [][]int) int {
 	}
 	if maxE-qua <= 4 && maxE >= 9 {
 		dept += 2
+	}
+	if MaxDepthCap > 0 && dept > MaxDepthCap {
+		dept = MaxDepthCap
 	}
 	if debug {
 		fmt.Printf("更新以后的的dept = %v\n", dept)

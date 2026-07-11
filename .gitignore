@@ -2,3 +2,15 @@
 threes!/node_modules/
 threes!/image/
 threes!/dist/
+
+# Go build artifacts
+/bin/
+/bench
+/diag
+/replay
+/serve
+/threes-ai
+*.so
+
+# Generated results / experiment data / logs
+/results/
