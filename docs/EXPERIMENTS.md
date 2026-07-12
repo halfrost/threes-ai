@@ -36,6 +36,19 @@ vs self-play games), training wall time. For **deployment**: platform, final
 score, max tile, screenshot/video links, any record achieved. Always note the
 comparison point (prior baseline, or the 2016 MS-TD SOTA).
 
+## Evaluation protocol (seeds)
+- A run `-seed S -n N` plays N **distinct** games with seeds `S..S+N-1` (game i
+  uses seed `S+i`). So "seed 1, N=1000" is 1000 different games, not one repeated.
+- All configs use the **same** seed range (1..N) so comparisons are **paired** —
+  the deck-blind vs deck-aware gap comes from the mode, not luck. Keep this.
+- N=1000 is tight for mean/median and the 6144 rate (SE ~1.3%); a **rare event
+  like the 12288 rate needs a much larger N** (e.g. 10000) to pin down — plan a
+  one-off large-N run for the final 12288 number.
+- Learned agents (Phase 2 N-tuple / Phase 3 RL): train on the self-play RNG
+  stream, then report on a **fixed held-out eval seed set** (seeds 1..N), the
+  SAME set for every agent and disjoint from training — never evaluate on
+  training games.
+
 ## Reference points (for paper positioning)
 - **2016 MS-TD SOTA** (Yeh et al., arXiv:1606.07374): on Threes, reaching the
   6144 tile — MS-TD **7.83%**, plain TD **0.45%**.
