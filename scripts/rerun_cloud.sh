@@ -34,10 +34,10 @@ run -n 1000 -seed 1 -depthcap 5            -label blind-d5 -out results/blind_d5
 run -n 1000 -seed 1 -depthcap 5 -deckaware -label aware-d5 -out results/aware_d5.jsonl
 
 # 2) Depth sweep, deck-aware (d5 already done at N=1000 above) — strength-vs-depth
-#    curve. Consistent N=500 per point for uniform error bars; d6 is ~1-2h on 240
-#    cores (the deep points dominate wall time).
+#    curve. Uniform N=1000 per point for consistent error bars and a firm
+#    6144/12288 rate. d6 is the bottleneck (~3-4h on 240 cores); d1-d4 are cheap.
 for d in 1 2 3 4 6; do
-  run -n 500 -seed 1 -depthcap "$d" -deckaware -label "aware-d$d" -out "results/aware_d$d.jsonl"
+  run -n 1000 -seed 1 -depthcap "$d" -deckaware -label "aware-d$d" -out "results/aware_d$d.jsonl"
 done
 
 # 3) OPTIONAL / EXPENSIVE — depth 7 is ~hours; depth 8+ is impractical (CprobMin

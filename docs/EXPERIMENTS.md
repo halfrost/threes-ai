@@ -49,6 +49,9 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 > These supersede the earlier small-N laptop runs (B1/B2/A1/A2), which used an
 > over-informed bonus preview (exact value instead of a "+") and very few games.
 > Config: bitboard + deck-aware unless noted, `scripts/rerun_cloud.sh`, seeds from 1.
+> NOTE: this first cloud pass used mixed N (d5 1000, d1-d4 500, d6 **only 200** —
+> so the 12288 rate below rests on just 3 games). A uniform **N=1000** rerun of the
+> whole sweep is queued to firm up the 6144/12288 rates and error bars.
 
 ### ★ MILESTONE — the 12288 tile (game end) reproduced  [P2 achieved]
 - Reached **12288** — two 6144 merging, which ends the game — in the deck-aware
