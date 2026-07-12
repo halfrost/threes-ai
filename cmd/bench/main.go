@@ -81,9 +81,11 @@ func main() {
 	logPath := flag.String("log", "results/summaries.jsonl", "append a one-line JSON run summary here (blank to disable)")
 	label := flag.String("label", "", "optional label for this run in the summary log")
 	record := flag.String("record", "", "if set, keep the single highest-score replay in this dir (record_<score>.json), discard the rest")
+	seqSearch := flag.Bool("seqsearch", false, "run each game's search sequentially (best throughput on many cores; parallelise across games instead)")
 	flag.Parse()
 
 	ai.MaxDepthCap = *depthCap
+	ai.ParallelRoot = !*seqSearch
 	utils.InitGameScoreTable()
 
 	fmt.Printf("Running %d games, %d workers, base seed %d...\n", *n, *workers, *seed)

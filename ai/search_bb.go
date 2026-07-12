@@ -12,19 +12,37 @@ import (
 	"github.com/halfrost/threes-ai/utils"
 )
 
+// ParallelRoot controls whether ExpectSearchBB evaluates the 4 root moves in
+// parallel goroutines. Keep it true for low single-game latency. Set it false
+// for batch self-play on many cores, where running each game's search
+// sequentially and parallelising across games avoids 4x goroutine
+// oversubscription and gives higher total throughput.
+var ParallelRoot = true
+
 // ExpectSearchBB returns the best move (0=UP,1=DOWN,2=LEFT,3=RIGHT) for a packed
-// board, or -1 if no move is legal. candidate/nextBrick match ExpectSearch.
+// board, or -1 if no move is legal. candidate/nextBrick match ExpectSearch. The
+// result is identical whether or not ParallelRoot is set.
 func ExpectSearchBB(board uint64, candidate []int, nextBrick []int) int {
-	scores := make([]chan float64, 4)
-	for move := 0; move < 4; move++ {
-		scores[move] = make(chan float64, 1)
-		go func(m int) { scores[m] <- deptSearchBB(board, candidate, nextBrick, m) }(move)
+	var moveScore [4]float64
+	if ParallelRoot {
+		var scores [4]chan float64
+		for move := 0; move < 4; move++ {
+			scores[move] = make(chan float64, 1)
+			go func(m int) { scores[m] <- deptSearchBB(board, candidate, nextBrick, m) }(move)
+		}
+		for m := 0; m < 4; m++ {
+			moveScore[m] = <-scores[m]
+		}
+	} else {
+		for m := 0; m < 4; m++ {
+			moveScore[m] = deptSearchBB(board, candidate, nextBrick, m)
+		}
 	}
 	var bestScore float64
 	bestMove := -1
 	for m := 0; m < 4; m++ {
-		if sc := <-scores[m]; sc > bestScore {
-			bestScore, bestMove = sc, m
+		if moveScore[m] > bestScore {
+			bestScore, bestMove = moveScore[m], m
 		}
 	}
 	return bestMove

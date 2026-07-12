@@ -105,7 +105,22 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 - Note: deck-blind here (50 games) sits a bit below B2 (30 games, 6144 13.3%) —
   expected sampling difference; this 50-game paired run is the cleaner reference.
 
-_Planned: depth sweep 3/4/5/6; heuristic vs N-tuple leaf; beam on/off; TT on/off._
+### A2 — Depth sweep (deck-aware) — deeper search still helps
+- Expectimax, bitboard, deck-aware. Same seeds from 1. `results/eval_deckaware_d5.jsonl`
+
+| depth | games | score mean | 3072 | 6144 | max |
+|---|---|---|---|---|---|
+| 4 | 50 | 262,348 | 74% | 14% | 745,299 |
+| 5 | 30 | 345,976 | 83.3% | **26.7% (8/30)** | 797,169 |
+
+- Takeaway: depth 4→5 nearly **doubles the 6144 rate (14%→26.7%)** and lifts mean score +32%.
+  Search depth has NOT plateaued — depth 6 should push 6144 past the P1 target (>=30%),
+  even before any learning. Cost: depth-5 is ~456 ms/move (~103 s/game); depth 6 will be
+  ~3-5x that, which is why the 240-core cloud box matters (and why N-tuple, giving deep-
+  quality play at shallow cost, is the long-term answer).
+- Best replay of the depth-5 run saved: `results/records/record_797169.json` (797,169).
+
+_Planned: depth 6 (on cloud); heuristic vs N-tuple leaf; beam on/off; TT on/off._
 
 ## 5. Training runs (planned — Phase 2/3)
 _N-tuple TD, multi-stage TD; DQN / PPO / AlphaZero-style. Log learning curves + hyperparameters._
