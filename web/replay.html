@@ -102,8 +102,8 @@
       </div>
       <div class="scrub">
         <span>Speed</span>
-        <input type="range" id="speed" min="1" max="60" value="8">
-        <span id="speedlbl">8/s</span>
+        <input type="range" id="speed" min="1" max="60" value="6">
+        <span id="speedlbl">6/s</span>
       </div>
       <label class="chk"><input type="checkbox" id="anim" checked> animate moves</label>
     </div>
@@ -122,7 +122,7 @@
 // ---- board geometry (px) ----
 const PAD = 16, TW = 74, TH = 98, GX = 10, GY = 18;
 const BW = PAD * 2 + TW * 4 + GX * 3, BH = PAD * 2 + TH * 4 + GY * 3;
-const SLIDE_MS = 110, SPAWN_MS = 90;
+const SLIDE_MS = 95, SPAWN_MS = 70;
 const cx = c => PAD + c * (TW + GX);
 const cy = r => PAD + r * (TH + GY);
 
@@ -253,7 +253,7 @@ function renderAnimated(fromIdx) {
 
     clearTiles();
     animating = true;
-    const b = board(), tiles = [];
+    const b = board(), finals = [];
     for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
       const val = vt[to.board[r][c]];
       if (val === 0) continue;
@@ -263,13 +263,14 @@ function renderAnimated(fromIdx) {
       if (isSpawn) {
         d.style.opacity = '0';
         d.style.transition = `opacity ${SPAWN_MS}ms ease-out ${SLIDE_MS}ms`;
+        finals.push(() => { d.style.opacity = '1'; });
       } else {
         const s = mv.src[r][c];
         if (s) d.style.transform = `translate(${cx(s[1]) - cx(c)}px, ${cy(s[0]) - cy(r)}px)`;
         d.style.transition = `transform ${SLIDE_MS}ms ease-out`;
+        finals.push(() => { d.style.transform = 'translate(0,0)'; });
       }
       b.appendChild(d);
-      tiles.push([d, isSpawn]);
     }
     // merge ghost: the second merging tile slides into the cell and fades out
     mv.merges.forEach(m => {
@@ -280,12 +281,14 @@ function renderAnimated(fromIdx) {
       g.style.transform = `translate(${cx(m.fc) - cx(m.c)}px, ${cy(m.fr) - cy(m.r)}px)`;
       g.style.transition = `transform ${SLIDE_MS}ms ease-out, opacity ${SLIDE_MS}ms ease-out`;
       b.appendChild(g);
-      requestAnimationFrame(() => { g.style.transform = 'translate(0,0)'; g.style.opacity = '0'; });
-      setTimeout(() => g.remove(), SLIDE_MS + 60);
+      finals.push(() => { g.style.transform = 'translate(0,0)'; g.style.opacity = '0'; });
+      setTimeout(() => g.remove(), SLIDE_MS + 80);
     });
-    requestAnimationFrame(() => {
-      tiles.forEach(([d, isSpawn]) => { if (isSpawn) d.style.opacity = '1'; else d.style.transform = 'translate(0,0)'; });
-    });
+    // Force a reflow so the initial transforms are committed, THEN flip to the
+    // final state — this reliably fires the CSS transition every step (a single
+    // requestAnimationFrame does not: the browser coalesces the two writes).
+    void b.offsetWidth;
+    finals.forEach(fn => fn());
     setTimeout(() => { animating = false; }, SLIDE_MS + SPAWN_MS + 40);
   } catch (e) {
     renderStatic(fromIdx + 1);   // ultimate fallback: never let animation break the view
@@ -309,7 +312,9 @@ function updateSide(idx) {
 }
 
 function canAnimate(target) {
-  return $('anim').checked && target === i + 1 && (1000 / (+$('speed').value)) >= SLIDE_MS + SPAWN_MS;
+  // animate when it's a single forward step and the play interval leaves room
+  // for at least the slide (fast play falls back to instant snaps)
+  return $('anim').checked && target === i + 1 && (1000 / (+$('speed').value)) >= SLIDE_MS;
 }
 function show(idx, animate) {
   idx = Math.max(0, Math.min(LAST, idx));
