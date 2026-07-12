@@ -45,7 +45,47 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 
 ---
 
-## 1. Baselines (existing hand-tuned Expectimax)
+## 0. Headline results (canonical: cloud box, corrected bonus-range engine)
+> These supersede the earlier small-N laptop runs (B1/B2/A1/A2), which used an
+> over-informed bonus preview (exact value instead of a "+") and very few games.
+> Config: bitboard + deck-aware unless noted, `scripts/rerun_cloud.sh`, seeds from 1.
+
+### ★ MILESTONE — the 12288 tile (game end) reproduced  [P2 achieved]
+- Reached **12288** — two 6144 merging, which ends the game — in the deck-aware
+  depth-6 run: **1.5% (3/200 games)**, and once at depth-5 deck-blind (0.1%, 1/1000).
+- Best game: **1,973,688 points**, max tile **12288**, seed 172, depth 6, 2055 moves
+  → `results/records/record_1973688.json` (load it in web/replay.html to watch it).
+- Context: 12288 is essentially the ceiling; only a handful of humans/bots have
+  ever done it. Our hand-tuned Expectimax reaches it before any learning.
+
+### H1 — Depth sweep, deck-aware — strength vs depth
+| depth | N | mean | median | 3072 | 6144 | 12288 | ms/move |
+|---|---|---|---|---|---|---|---|
+| 1 | 500 | 24,658 | 22,254 | 0.4% | 0% | 0% | 4 |
+| 2 | 500 | 61,193 | 62,619 | 6.2% | 0% | 0% | 3 |
+| 3 | 500 | 117,568 | 86,922 | 28.6% | 1.6% | 0% | 64 |
+| 4 | 500 | 176,111 | 187,518 | 51.4% | 4.4% | 0% | 327 |
+| 5 | 1000 | 251,707 | 219,912 | 69.8% | **15.2%** | 0% | 1334 |
+| 6 | 200 | 319,029 | 253,029 | 77.0% | **22.5%** | 1.5% | 1983 |
+- Monotonic and still climbing at depth 6 (6144: 15.2%→22.5% from d5→d6). Numbers
+  are lower than the old laptop estimates because the bonus preview is now a range
+  (not the exact value) and N is far larger. Cost ~4-5x per depth level.
+
+### H2 — Deck-aware vs deck-blind @ depth 5 (N=1000, paired seeds 1..1000)
+| metric | deck-blind | deck-aware | Δ |
+|---|---|---|---|
+| score mean | 234,732 | **251,707** | **+7.2%** |
+| score median | 213,213 | 219,912 | +3.1% |
+| 3072 reach | 68.0% | 69.8% | +1.8 pts |
+| 6144 reach | 11.6% | **15.2%** | **+3.6 pts** (~2.4σ) |
+- Deck-aware is a real but **modest** edge at N=1000. The earlier +25% (A1) was a
+  50-game estimate on the over-informed engine; this is the honest number. (The
+  deck-blind max of 1,833,213 is a single lucky 12288 game — tail noise; the mean,
+  median and 6144-rate all favour deck-aware.)
+
+---
+
+## 1. Baselines — early small-N laptop runs (SUPERSEDED by section 0)
 
 ### B2 — Expectimax, bitboard, depth-cap 4, 30 games  ★ current reference baseline
 - Config: `bench -n 30 -seed 1 -depthcap 4 -bb -workers 6`; `results/baseline_bb_depth4.jsonl`
