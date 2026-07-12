@@ -31,7 +31,7 @@ func main() {
 	g := engine.NewGame(*seed)
 	rec := &engine.Replay{Seed: *seed, Agent: "expectimax", DepthCap: *depthcap}
 	engine.Play(g, func(gg *engine.Game) int {
-		return ai.ExpectSearch(gg.Board, gameboard.FindCandidates(gg.Board), []int{gg.Next})
+		return ai.ExpectSearch(gg.Board, gameboard.FindCandidates(gg.Board), gg.NextHint())
 	}, rec, *maxmoves)
 
 	if dir := filepath.Dir(*out); dir != "" {

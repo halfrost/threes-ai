@@ -36,9 +36,9 @@ func main() {
 		cand := gameboard.FindCandidates(g.Board)
 		var move int
 		if *bb {
-			move = ai.ExpectSearchBB(engine.PackBoard(g.Board), cand, []int{g.Next})
+			move = ai.ExpectSearchBB(engine.PackBoard(g.Board), cand, g.NextHint())
 		} else {
-			move = ai.ExpectSearch(g.Board, cand, []int{g.Next})
+			move = ai.ExpectSearch(g.Board, cand, g.NextHint())
 		}
 		ms := float64(time.Since(t0).Microseconds()) / 1000
 		if move < 0 || !g.Step(move) {

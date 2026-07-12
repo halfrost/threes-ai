@@ -161,6 +161,26 @@ func (g *Game) Score() int {
 // MaxTile returns the highest printed tile value on the board.
 func (g *Game) MaxTile() int { return ValueTable[g.maxIndex()] }
 
+// NextHint returns what the AI should be told about the incoming tile — matching
+// what a real player sees. For a base tile it is the exact value [Next]. For a
+// bonus tile the real game only shows a white "+", so the AI is given the full
+// set of possible bonus indices {6, ..., maxTile/8} to average over, instead of
+// the exact value it must not know.
+func (g *Game) NextHint() []int {
+	if !g.NextBonus {
+		return []int{g.Next}
+	}
+	hi := g.maxIndex() - 3 // value maxTile/8
+	if hi < 4 {
+		return []int{g.Next}
+	}
+	hint := make([]int, 0, hi-3)
+	for idx := 4; idx <= hi; idx++ {
+		hint = append(hint, idx)
+	}
+	return hint
+}
+
 // DeckCounts returns the ground-truth remaining bag as [ones, twos, threes],
 // counted as of *before* the current preview tile was drawn. This is the exact
 // "deck-aware" signal to feed the search as its candidate: the search decrements

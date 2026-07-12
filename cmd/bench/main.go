@@ -56,9 +56,9 @@ func playGame(seed int64, maxMoves int, bb, deckAware, record bool) (GameResult,
 			cand = gg.DeckCounts()
 		}
 		if bb {
-			return ai.ExpectSearchBB(engine.PackBoard(gg.Board), cand, []int{gg.Next})
+			return ai.ExpectSearchBB(engine.PackBoard(gg.Board), cand, gg.NextHint())
 		}
-		return ai.ExpectSearch(gg.Board, cand, []int{gg.Next})
+		return ai.ExpectSearch(gg.Board, cand, gg.NextHint())
 	}, rec, maxMoves)
 	return GameResult{
 		Seed:       seed,

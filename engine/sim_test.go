@@ -91,6 +91,31 @@ func TestDeckCountsInvariants(t *testing.T) {
 	}
 }
 
+func TestNextHint(t *testing.T) {
+	g := &Game{Board: newBoard()}
+
+	// Base tile: the exact value.
+	g.NextBonus, g.Next = false, 2
+	if h := g.NextHint(); len(h) != 1 || h[0] != 2 {
+		t.Fatalf("base NextHint = %v, want [2]", h)
+	}
+
+	// Bonus with max tile 384 (index 10): range {6..48} == indices 4,5,6,7.
+	// The exact hidden value (Next) must NOT leak into the hint.
+	g.Board[0][0] = 10
+	g.NextBonus, g.Next = true, 5
+	got := g.NextHint()
+	want := []int{4, 5, 6, 7}
+	if len(got) != len(want) {
+		t.Fatalf("bonus NextHint = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("bonus NextHint = %v, want %v", got, want)
+		}
+	}
+}
+
 func TestDeterminism(t *testing.T) {
 	trace := func() []int {
 		g := NewGame(42)
