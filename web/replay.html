@@ -10,11 +10,9 @@
   :root {
     --blue: #66CCFF; --red: #FF6680; --yellow: #FFCC66;
     --dark-green: #B6D9D9; --light-green: #D0E6DF; --light-gray: #FAFAFA; --gray: #666E80;
-    --tw: 74px; --th: 98px;   /* tile width / height */
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--light-gray); color: #777E8C;
-    font-family: "Nunito", sans-serif; }
+  body { margin: 0; background: var(--light-gray); color: #777E8C; font-family: "Nunito", sans-serif; }
   header { padding: 16px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
     border-bottom: 1px solid #ececec; }
   h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: 1px; color: var(--gray); }
@@ -32,15 +30,17 @@
   main { display: flex; gap: 40px; padding: 28px 24px; flex-wrap: wrap; align-items: flex-start;
     justify-content: center; }
 
-  .board { background: var(--light-green); border-radius: 12px; padding: 16px;
-    display: grid; grid-template-columns: repeat(4, var(--tw)); gap: 22px 10px; }
-  .cell { width: var(--tw); height: var(--th); border-radius: 9px; background: var(--dark-green);
-    box-shadow: 0 7px var(--dark-green); display: flex; align-items: center; justify-content: center;
-    font-weight: 700; color: #fff; }
-  .cell.empty { box-shadow: none; background: #c4e1d9; }
-  .cell.blue { background: var(--blue); box-shadow: 0 7px color-mix(in srgb, var(--blue), #000 22%); }
-  .cell.red  { background: var(--red);  box-shadow: 0 7px color-mix(in srgb, var(--red), #000 22%); }
-  .cell.white{ background: #fff; color: #333; box-shadow: 0 7px var(--yellow); }
+  /* Board is a fixed-size positioned box; slots are the static background, tiles float on top
+     and animate only via a transient CSS transform that always settles back to their real cell. */
+  .board { position: relative; background: var(--light-green); border-radius: 12px; }
+  .slot, .tile { position: absolute; border-radius: 9px; }
+  .slot { background: #c4e1d9; }
+  .tile { display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff;
+    will-change: transform, opacity; }
+  .tile.blue { background: var(--blue); box-shadow: 0 7px color-mix(in srgb, var(--blue), #000 22%); }
+  .tile.red  { background: var(--red);  box-shadow: 0 7px color-mix(in srgb, var(--red), #000 22%); }
+  .tile.white{ background: #fff; color: #333; box-shadow: 0 7px var(--yellow); }
+  .tile.ghost { z-index: 1; }
 
   .side { display: flex; flex-direction: column; gap: 18px; min-width: 230px; }
   .card { background: #fff; border-radius: 12px; padding: 16px 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }
@@ -58,6 +58,7 @@
   .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .scrub { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
   .scrub span { color: var(--gray); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  label.chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray); margin-top: 10px; }
   input[type=range] { width: 100%; accent-color: var(--blue); }
   .drop { margin: 30px 24px; border: 2px dashed var(--dark-green); border-radius: 12px; padding: 32px;
     text-align: center; color: var(--gray); cursor: pointer; }
@@ -101,9 +102,10 @@
       </div>
       <div class="scrub">
         <span>Speed</span>
-        <input type="range" id="speed" min="1" max="60" value="12">
-        <span id="speedlbl">12/s</span>
+        <input type="range" id="speed" min="1" max="60" value="8">
+        <span id="speedlbl">8/s</span>
       </div>
+      <label class="chk"><input type="checkbox" id="anim" checked> animate moves</label>
     </div>
     <div class="hint">Generate one with
       <code>go run ./cmd/replay -seed 1 -out results/replay.json</code></div>
@@ -117,23 +119,90 @@
 </div>
 
 <script>
-let R = null, i = 0, LAST = 0, timer = null;
-const $ = id => document.getElementById(id);
-const ARROWS = { '0':'↑','1':'↓','2':'←','3':'→','-1':'⏹' };
-const DIRS   = { '0':'UP','1':'DOWN','2':'LEFT','3':'RIGHT','-1':'GAME OVER' };
+// ---- board geometry (px) ----
+const PAD = 16, TW = 74, TH = 98, GX = 10, GY = 18;
+const BW = PAD * 2 + TW * 4 + GX * 3, BH = PAD * 2 + TH * 4 + GY * 3;
+const SLIDE_MS = 110, SPAWN_MS = 90;
+const cx = c => PAD + c * (TW + GX);
+const cy = r => PAD + r * (TH + GY);
 
-function tileClass(v) {
-  if (v === 0) return 'empty';
-  if (v === 1) return 'blue';
-  if (v === 2) return 'red';
-  return 'white';
-}
+let R = null, i = 0, LAST = 0, timer = null, animating = false;
+const $ = id => document.getElementById(id);
+const board = () => $('board');
+const ARROWS = { '0': '↑', '1': '↓', '2': '←', '3': '→', '-1': '⏹' };
+const DIRS = { '0': 'UP', '1': 'DOWN', '2': 'LEFT', '3': 'RIGHT', '-1': 'GAME OVER' };
+
+function tileClass(v) { return v === 0 ? '' : v === 1 ? 'blue' : v === 2 ? 'red' : 'white'; }
 function fontSize(v, base) {
   const s = String(v).length;
-  if (s <= 2) return base;
-  if (s === 3) return Math.round(base * 0.82);
-  if (s === 4) return Math.round(base * 0.66);
-  return Math.round(base * 0.55);
+  return s <= 2 ? base : s === 3 ? Math.round(base * 0.82) : s === 4 ? Math.round(base * 0.66) : Math.round(base * 0.55);
+}
+function newTile(val, extra) {
+  const d = document.createElement('div');
+  d.className = 'tile ' + tileClass(val) + (extra ? ' ' + extra : '');
+  d.style.width = TW + 'px'; d.style.height = TH + 'px';
+  d.style.fontSize = fontSize(val, 30) + 'px';
+  d.textContent = val;
+  return d;
+}
+function clearTiles() { board().querySelectorAll('.tile').forEach(e => e.remove()); }
+
+function buildSlots() {
+  const b = board();
+  b.style.width = BW + 'px'; b.style.height = BH + 'px';
+  b.innerHTML = '';
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+    const s = document.createElement('div');
+    s.className = 'slot';
+    s.style.width = TW + 'px'; s.style.height = TH + 'px';
+    s.style.left = cx(c) + 'px'; s.style.top = cy(r) + 'px';
+    b.appendChild(s);
+  }
+}
+
+// ---- Threes move recomputation (only to derive slide sources; the end state
+//      always comes from the replay, so a mistake here can never move a tile
+//      off-board — at worst we snap without animating). ----
+function mergeVal(a, b) {
+  if ((a === 1 && b === 2) || (a === 2 && b === 1)) return 3;
+  if (a === b && a >= 3) return a === 15 ? 15 : a + 1;
+  return -1;
+}
+function moveLineLow(c) {
+  for (let p = 0; p < 3; p++) {
+    const slide = c[p] === 0 && c[p + 1] !== 0;
+    const m = mergeVal(c[p], c[p + 1]);
+    if (!slide && m < 0) continue;
+    const res = c.slice(0, p), srcOf = [];
+    for (let k = 0; k < p; k++) srcOf.push(k);
+    let mergedPos = -1, mergedFrom = -1;
+    if (m >= 0) { res[p] = m; srcOf[p] = p; mergedPos = p; mergedFrom = p + 1; }
+    else { res[p] = c[p + 1]; srcOf[p] = p + 1; }
+    for (let q = p + 1; q < 3; q++) { res[q] = c[q + 1]; srcOf[q] = q + 1; }
+    res[3] = 0; srcOf[3] = -1;
+    return { result: res, srcOf, mergedPos, mergedFrom };
+  }
+  return { result: c.slice(), srcOf: [0, 1, 2, 3], mergedPos: -1, mergedFrom: -1 };
+}
+function computeMove(bd, move) {
+  const after = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+  const src = [[null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null]];
+  const merges = [];
+  for (let li = 0; li < 4; li++) {
+    let lane, cellOf;
+    if (move === 0) { lane = [bd[0][li], bd[1][li], bd[2][li], bd[3][li]]; cellOf = p => [p, li]; }
+    else if (move === 1) { lane = [bd[3][li], bd[2][li], bd[1][li], bd[0][li]]; cellOf = p => [3 - p, li]; }
+    else if (move === 2) { lane = [bd[li][0], bd[li][1], bd[li][2], bd[li][3]]; cellOf = p => [li, p]; }
+    else { lane = [bd[li][3], bd[li][2], bd[li][1], bd[li][0]]; cellOf = p => [li, 3 - p]; }
+    const { result, srcOf, mergedPos, mergedFrom } = moveLineLow(lane);
+    for (let p = 0; p < 4; p++) {
+      const [r, c] = cellOf(p);
+      after[r][c] = result[p];
+      if (result[p] !== 0 && srcOf[p] >= 0) src[r][c] = cellOf(srcOf[p]);
+      if (p === mergedPos && mergedFrom >= 0) { const [fr, fc] = cellOf(mergedFrom); merges.push({ r, c, fr, fc }); }
+    }
+  }
+  return { after, src, merges };
 }
 
 function load(replay) {
@@ -146,41 +215,121 @@ function load(replay) {
     `<span>depth cap <b>${R.depth_cap || '—'}</b></span>` +
     `<span>final <b>${R.final_score.toLocaleString()}</b></span>` +
     `<span>max tile <b>${R.max_tile}</b></span><span>moves <b>${R.moves}</b></span>`;
-  render();
+  buildSlots();
+  renderStatic(0);
+  updateSide(0);
 }
 
-function render() {
-  const s = R.steps[i], vt = R.value_table, b = $('board');
-  b.innerHTML = '';
+function renderStatic(idx) {
+  clearTiles();
+  const s = R.steps[idx], vt = R.value_table, b = board();
   for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
     const val = vt[s.board[r][c]];
-    const d = document.createElement('div');
-    d.className = 'cell ' + tileClass(val);
-    if (val !== 0) { d.textContent = val; d.style.fontSize = fontSize(val, 30) + 'px'; }
+    if (val === 0) continue;
+    const d = newTile(val);
+    d.style.left = cx(c) + 'px'; d.style.top = cy(r) + 'px';
     b.appendChild(d);
   }
+}
+
+// Animate steps[fromIdx] -> steps[fromIdx+1]. Any doubt => snap (never a glitch).
+function renderAnimated(fromIdx) {
+  const to = R.steps[fromIdx + 1];
+  try {
+    const from = R.steps[fromIdx], vt = R.value_table, move = from.move;
+    if (move < 0) { renderStatic(fromIdx + 1); return; }
+    const mv = computeMove(from.board, move);
+
+    // Guard: our recomputed afterstate + exactly one spawned tile must equal the
+    // replay's next board. Otherwise bail to a plain snap.
+    let spawn = null, ok = true;
+    for (let r = 0; r < 4 && ok; r++) for (let c = 0; c < 4 && ok; c++) {
+      if (mv.after[r][c] !== to.board[r][c]) {
+        if (mv.after[r][c] === 0 && to.board[r][c] !== 0 && spawn === null) spawn = [r, c];
+        else ok = false;
+      }
+    }
+    if (!ok) { renderStatic(fromIdx + 1); return; }
+
+    clearTiles();
+    animating = true;
+    const b = board(), tiles = [];
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const val = vt[to.board[r][c]];
+      if (val === 0) continue;
+      const d = newTile(val);
+      d.style.left = cx(c) + 'px'; d.style.top = cy(r) + 'px';
+      const isSpawn = spawn && spawn[0] === r && spawn[1] === c;
+      if (isSpawn) {
+        d.style.opacity = '0';
+        d.style.transition = `opacity ${SPAWN_MS}ms ease-out ${SLIDE_MS}ms`;
+      } else {
+        const s = mv.src[r][c];
+        if (s) d.style.transform = `translate(${cx(s[1]) - cx(c)}px, ${cy(s[0]) - cy(r)}px)`;
+        d.style.transition = `transform ${SLIDE_MS}ms ease-out`;
+      }
+      b.appendChild(d);
+      tiles.push([d, isSpawn]);
+    }
+    // merge ghost: the second merging tile slides into the cell and fades out
+    mv.merges.forEach(m => {
+      const val = R.value_table[R.steps[fromIdx].board[m.fr][m.fc]];
+      if (val === 0) return;
+      const g = newTile(val, 'ghost');
+      g.style.left = cx(m.c) + 'px'; g.style.top = cy(m.r) + 'px';
+      g.style.transform = `translate(${cx(m.fc) - cx(m.c)}px, ${cy(m.fr) - cy(m.r)}px)`;
+      g.style.transition = `transform ${SLIDE_MS}ms ease-out, opacity ${SLIDE_MS}ms ease-out`;
+      b.appendChild(g);
+      requestAnimationFrame(() => { g.style.transform = 'translate(0,0)'; g.style.opacity = '0'; });
+      setTimeout(() => g.remove(), SLIDE_MS + 60);
+    });
+    requestAnimationFrame(() => {
+      tiles.forEach(([d, isSpawn]) => { if (isSpawn) d.style.opacity = '1'; else d.style.transform = 'translate(0,0)'; });
+    });
+    setTimeout(() => { animating = false; }, SLIDE_MS + SPAWN_MS + 40);
+  } catch (e) {
+    renderStatic(fromIdx + 1);   // ultimate fallback: never let animation break the view
+  }
+}
+
+function updateSide(idx) {
+  const s = R.steps[idx], vt = R.value_table;
   $('score').textContent = s.score.toLocaleString();
-  $('movenum').textContent = `${i} / ${LAST}`;
+  $('movenum').textContent = `${idx} / ${LAST}`;
   $('arrow').textContent = ARROWS[s.move];
   $('dir').textContent = DIRS[s.move];
-  const nv = s.next >= 0 ? vt[s.next] : null;
-  const nx = $('next');
+  const nv = s.next >= 0 ? vt[s.next] : null, nx = $('next');
   if (nv === null) { nx.textContent = '·'; nx.className = 'nexttile'; nx.style.fontSize = ''; }
   else {
     nx.textContent = nv >= 6 ? '+' + nv : nv;   // bonus tiles (>=6) can't come from the 1/2/3 bag
     nx.className = 'nexttile ' + tileClass(nv);
     nx.style.fontSize = fontSize(nv, 18) + 'px';
   }
-  $('scrub').value = i; $('idxlbl').textContent = i;
+  $('scrub').value = idx; $('idxlbl').textContent = idx;
 }
 
-function go(n) { i = Math.max(0, Math.min(LAST, n)); render(); }
-function step(d) { go(i + d); if (i === LAST) stop(); }
+function canAnimate(target) {
+  return $('anim').checked && target === i + 1 && (1000 / (+$('speed').value)) >= SLIDE_MS + SPAWN_MS;
+}
+function show(idx, animate) {
+  idx = Math.max(0, Math.min(LAST, idx));
+  if (animate && canAnimate(idx)) renderAnimated(i);
+  else renderStatic(idx);
+  i = idx;
+  updateSide(i);
+}
+function go(n) { show(+n, false); }
+function step(d) { show(i + d, d === 1); if (i === LAST) stop(); }
+
 function toggle() { timer ? stop() : play(); }
 function play() {
   if (i >= LAST) i = 0;
   $('playbtn').textContent = '⏸ Pause';
-  const tick = () => { if (i >= LAST) { stop(); return; } step(1); timer = setTimeout(tick, 1000 / (+$('speed').value)); };
+  const tick = () => {
+    if (i >= LAST) { stop(); return; }
+    step(1);
+    timer = setTimeout(tick, 1000 / (+$('speed').value));
+  };
   tick();
 }
 function stop() { clearTimeout(timer); timer = null; $('playbtn').textContent = '▶ Play'; }
@@ -191,8 +340,8 @@ $('file').addEventListener('change', e => {
   f.text().then(t => load(JSON.parse(t))).catch(err => alert('Bad replay JSON: ' + err));
 });
 const drop = $('drop');
-['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('hot'); }));
-['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('hot'); }));
+['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('hot'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('hot'); }));
 drop.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]; if (!f) return;
   f.text().then(t => load(JSON.parse(t))).catch(err => alert('Bad replay JSON: ' + err));
