@@ -8,10 +8,23 @@
 
 ## Reproducibility / environment
 - Engine is deterministic: game `i` uses `seed + i`; same config → same results.
-- Machine: Apple Silicon (arm64), macOS 26. Go 1.21. Python 3.11.8.
-- Reproduce a run: `go run ./cmd/bench -n <N> -seed <S> -depthcap <D> -bb -out results/<name>.jsonl`
+- Reproduce a run: `go run ./cmd/bench -n <N> -seed <S> -depthcap <D> -bb -deckaware -out results/<name>.jsonl`
 - A machine-readable summary of each `bench` run is also appended to
   `results/summaries.jsonl` via `-log` (one JSON object per run).
+
+**Machines**
+- **Dev laptop**: Apple Silicon (arm64), macOS 26. Go 1.21, Python 3.11.8. Used
+  for the early small-N runs (B1/B2/A1/A2) before the corrected engine.
+- **Cloud compute box** (canonical large-N reruns, `scripts/rerun_cloud.sh`):
+  - Intel Xeon **6986P-C** (Granite Rapids), x86_64, single socket.
+  - **240 vCPUs** = 120 physical cores × 2 threads/core. 3 NUMA nodes (0-79 / 80-159 / 160-239).
+  - Cache: L1d 5.6 MiB, L1i 7.5 MiB, L2 240 MiB, **L3 504 MiB**.
+  - ISA highlights: AVX-512 (F/DQ/BW/VL/VNNI/BF16/FP16/VBMI2), **AMX** (tile/int8/bf16), SHA-NI, VAES. BogoMIPS 5600.
+  - Virtualized: KVM (QEMU pc-i440fx-5.2).
+  - Note: expectimax / N-tuple are CPU-bound and scale ~linearly with cores here;
+    there is **no GPU**, so the RL baselines (DQN/PPO/AlphaZero, Phase 3) will be
+    the slow part. Cross-arch: aggregate stats match the laptop; rare single games
+    can differ by a `math.Pow` ULP, so paper numbers come from this one box.
 
 ## What to record (checklist for every experiment)
 For each **agent evaluation**: agent name, engine (bitboard/slice), search depth

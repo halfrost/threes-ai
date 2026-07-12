@@ -33,11 +33,11 @@ run() { echo; echo "=== bench $* ==="; ./bin/bench $C "$@"; }
 run -n 1000 -seed 1 -depthcap 5            -label blind-d5 -out results/blind_d5.jsonl
 run -n 1000 -seed 1 -depthcap 5 -deckaware -label aware-d5 -out results/aware_d5.jsonl
 
-# 2) Depth sweep, deck-aware (d5 already done above) — strength-vs-depth curve.
-#    d1-d5 are cheap; d6 is ~1-2h on 240 cores.
+# 2) Depth sweep, deck-aware (d5 already done at N=1000 above) — strength-vs-depth
+#    curve. Consistent N=500 per point for uniform error bars; d6 is ~1-2h on 240
+#    cores (the deep points dominate wall time).
 for d in 1 2 3 4 6; do
-  n=500; [ "$d" -ge 6 ] && n=200
-  run -n "$n" -seed 1 -depthcap "$d" -deckaware -label "aware-d$d" -out "results/aware_d$d.jsonl"
+  run -n 500 -seed 1 -depthcap "$d" -deckaware -label "aware-d$d" -out "results/aware_d$d.jsonl"
 done
 
 # 3) OPTIONAL / EXPENSIVE — depth 7 is ~hours; depth 8+ is impractical (CprobMin
