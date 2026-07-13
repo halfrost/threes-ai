@@ -29,20 +29,21 @@ C="-bb -seqsearch -workers $W -record results/records"
 
 run() { echo; echo "=== bench $* ==="; ./bin/bench $C "$@"; }
 
-# Full grid: both deck modes x depths 1-6, uniform N=1000 (no special depth).
+# Full grid: both deck modes x depths 1-9, uniform N=1000 (no special depth).
 # This gives the strength-vs-depth curve for BOTH deck-blind and deck-aware, and
 # hence the deck-aware ablation at every depth (paired seeds 1..1000). The deep
-# points d5/d6 dominate wall time (~2h and ~3.6h per run on 240 cores).
+# points dominate wall time (d5/d6 ~2h/3.6h per run on 240 cores; d7-9 cost more
+# but CprobMin caps the effective depth, so it grows sublinearly).
 for mode in blind aware; do
   flag=""; [ "$mode" = aware ] && flag="-deckaware"
-  for d in 1 2 3 4 5 6; do
+  for d in 1 2 3 4 5 6 7 8 9; do
     run -n 1000 -seed 1 -depthcap "$d" $flag -label "$mode-d$d" -out "results/${mode}_d$d.jsonl"
   done
 done
 
-# 3) OPTIONAL / EXPENSIVE — depth 7 is ~hours; depth 8+ is impractical (CprobMin
-#    caps the effective depth and cost grows ~4-5x per level). Uncomment if wanted.
-# run -n 100 -seed 1 -depthcap 7 -deckaware -label aware-d7 -out results/aware_d7.jsonl
+# NOTE: d7-9 are the expensive tail (now in the grid above). CprobMin caps the
+# effective search depth, so beyond ~d6 extra depth mostly adds cost, not strength
+# — watch results/summaries.jsonl to see where the curve flattens.
 
 echo; echo "All done. Per-run summaries: results/summaries.jsonl"
 echo "Best replay across all runs: results/records/"
