@@ -30,10 +30,14 @@ Trained weights are checkpointed under `models/`.
 - **Same seeds protocol** (see docs/EXPERIMENTS.md): training uses seeds from
   10_000_000+; evaluation uses the fixed held-out set (seeds 1..N), the SAME set
   every agent (and the Go search/N-tuple agents) reports on.
-- **Engine parity**: `threes_env.py` is a Python port of the Go rules. Before any
-  paper numbers, validate it against the Go engine (same seed → same trajectory),
-  or export the trained policy and evaluate it through the Go `cmd/bench` harness
-  so all agents are measured on the *identical* environment.
+- **Engine parity** (done — keep it green): `bash scripts/rl_parity.sh` proves
+  `threes_env.py` reproduces the Go engine exactly. The Go `cmd/paritydump` emits
+  random games as event streams; `parity_check.py` replays each move and
+  force-places the recorded spawn, asserting board+score match cell-for-cell
+  (RNG-independent). Re-run after any change to the move/merge/score logic on
+  either side. For final paper numbers you can additionally export a trained
+  policy and score it through the Go `cmd/bench` harness so every agent is
+  measured on the *identical* environment.
 - **No GPU on the cloud box**: these nets train much faster on a GPU. On the
   CPU-only 240-core machine they will be the slow part of the project — plan
   accordingly (smaller nets / fewer iterations, or a separate GPU box).
