@@ -23,9 +23,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/halfrost/threes-ai/agent"
 	"github.com/halfrost/threes-ai/ai"
 	"github.com/halfrost/threes-ai/engine"
 	"github.com/halfrost/threes-ai/gameboard"
+	"github.com/halfrost/threes-ai/ntuple"
 	"github.com/halfrost/threes-ai/utils"
 )
 
@@ -43,14 +45,19 @@ type GameResult struct {
 
 // playGame runs one full game driven by the current AI. When record is true it
 // also returns the full replay (nil otherwise).
-func playGame(seed int64, maxMoves int, bb, deckAware, record bool) (GameResult, *engine.Replay) {
+func playGame(seed int64, maxMoves int, bb, deckAware, record bool, agentKind string, net *ntuple.Network) (GameResult, *engine.Replay) {
 	g := engine.NewGame(seed)
 	var rec *engine.Replay
 	if record {
-		rec = &engine.Replay{Seed: seed, Agent: "expectimax", DepthCap: ai.MaxDepthCap}
+		rec = &engine.Replay{Seed: seed, Agent: agentKind, DepthCap: ai.MaxDepthCap}
 	}
 	start := time.Now()
 	engine.Play(g, func(gg *engine.Game) int {
+		if agentKind == "ntuple-greedy" { // depth-0 learned policy
+			mv, _ := agent.GreedyMove(net, gg)
+			return mv
+		}
+		// expectimax (default) and ntuple-search (N-tuple leaf set globally via ai.LeafEval)
 		cand := gameboard.FindCandidates(gg.Board)
 		if deckAware {
 			cand = gg.DeckCounts()
@@ -82,11 +89,32 @@ func main() {
 	label := flag.String("label", "", "optional label for this run in the summary log")
 	record := flag.String("record", "", "if set, keep the single highest-score replay in this dir (record_<score>.json), discard the rest")
 	seqSearch := flag.Bool("seqsearch", false, "run each game's search sequentially (best throughput on many cores; parallelise across games instead)")
+	agentKind := flag.String("agent", "expectimax", "agent: expectimax | ntuple-greedy | ntuple-search")
+	model := flag.String("model", "", "N-tuple model file (required for ntuple-* agents)")
 	flag.Parse()
 
 	ai.MaxDepthCap = *depthCap
 	ai.ParallelRoot = !*seqSearch
 	utils.InitGameScoreTable()
+
+	// Load the learned value function for the N-tuple agents. ntuple-search plugs
+	// it into the expectimax leaves via ai.LeafEval; ntuple-greedy uses it directly.
+	var net *ntuple.Network
+	if *agentKind == "ntuple-greedy" || *agentKind == "ntuple-search" {
+		if *model == "" {
+			fmt.Fprintln(os.Stderr, "the ntuple agents need -model <file>")
+			os.Exit(1)
+		}
+		var err error
+		if net, err = ntuple.Load(*model); err != nil {
+			fmt.Fprintf(os.Stderr, "load model: %v\n", err)
+			os.Exit(1)
+		}
+		if *agentKind == "ntuple-search" {
+			ai.LeafEval = net.Value
+		}
+		fmt.Printf("Agent %s using model %s (%d tuples)\n", *agentKind, *model, len(net.Tuples))
+	}
 
 	fmt.Printf("Running %d games, %d workers, base seed %d...\n", *n, *workers, *seed)
 	results := make([]GameResult, *n)
@@ -119,7 +147,7 @@ func main() {
 		go func(idx int) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			res, replay := playGame(*seed+int64(idx), *maxMoves, *bb, *deckAware, rec.enabled())
+			res, replay := playGame(*seed+int64(idx), *maxMoves, *bb, *deckAware, rec.enabled(), *agentKind, net)
 			results[idx] = res
 			rec.offer(res.Score, replay)
 			if outEnc != nil {
@@ -142,7 +170,7 @@ func main() {
 		engineName = "bitboard"
 	}
 	if *logPath != "" {
-		s := summarize(results, wall, *label, engineName, *depthCap, *seed, *deckAware)
+		s := summarize(results, wall, *label, *agentKind, engineName, *depthCap, *seed, *deckAware)
 		if err := appendSummary(*logPath, s); err != nil {
 			fmt.Fprintf(os.Stderr, "append summary: %v\n", err)
 		} else {
@@ -176,7 +204,7 @@ type Summary struct {
 	Reach        map[string]float64 `json:"reach"`
 }
 
-func summarize(results []GameResult, wall time.Duration, label, engineName string, depthCap int, seed int64, deckAware bool) Summary {
+func summarize(results []GameResult, wall time.Duration, label, agentKind, engineName string, depthCap int, seed int64, deckAware bool) Summary {
 	n := len(results)
 	scores := make([]int, n)
 	var totalScore, totalMoves, totalMs int64
@@ -204,7 +232,7 @@ func summarize(results []GameResult, wall time.Duration, label, engineName strin
 	return Summary{
 		Date:         time.Now().Format(time.RFC3339),
 		Label:        label,
-		Agent:        "expectimax",
+		Agent:        agentKind,
 		Engine:       engineName,
 		DeckAware:    deckAware,
 		DepthCap:     depthCap,

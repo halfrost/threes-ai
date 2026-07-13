@@ -98,8 +98,16 @@ func heurSearchBB(gsm *GameState, board uint64, candidate []int, nextBrick, move
 	return res * factor
 }
 
+// LeafEval, when set, replaces the hand-tuned heuristic at the search leaves —
+// e.g. with a learned N-tuple value function. nil (the default) preserves the
+// original behaviour exactly, so existing runs are unaffected.
+var LeafEval func(uint64) float64
+
 func insertHeurSearchBB(gsm *GameState, board uint64, candidate []int, prob float64) float64 {
 	if prob < utils.CprobMin || gsm.CurrentDept >= gsm.DeptMax {
+		if LeafEval != nil {
+			return LeafEval(board)
+		}
 		return utils.HeurScoreBitboard(board)
 	}
 	var best float64
