@@ -58,48 +58,47 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 
 ---
 
-## 0. Headline results (canonical: cloud box, corrected bonus-range engine)
-> These supersede the earlier small-N laptop runs (B1/B2/A1/A2), which used an
-> over-informed bonus preview (exact value instead of a "+") and very few games.
-> Config: bitboard + deck-aware unless noted, `scripts/rerun_cloud.sh`, seeds from 1.
-> NOTE: this first cloud pass used mixed N (d5 1000, d1-d4 500, d6 **only 200** —
-> so the 12288 rate below rests on just 3 games) and only compared deck modes at
-> depth 5. A uniform rerun is queued: **both deck-blind and deck-aware at every
-> depth 1-6, all N=1000** (a full 2×6 grid, paired seeds), which firms up the
-> 6144/12288 rates and gives the deck-aware gap at every depth.
+## 0. Headline results (canonical: cloud box, corrected engine, N=1000)
+> The full 2×6 grid — deck-blind AND deck-aware at every depth 1-6, N=1000, paired
+> seeds 1..1000, bitboard + bonus-range engine (`scripts/rerun_cloud.sh`). These
+> supersede all earlier numbers (laptop B1/B2/A1/A2 and the mixed-N first pass),
+> which used an over-informed bonus preview and/or too few games.
 
-### ★ MILESTONE — the 12288 tile (game end) reproduced  [P2 achieved]
-- Reached **12288** — two 6144 merging, which ends the game — in the deck-aware
-  depth-6 run: **1.5% (3/200 games)**, and once at depth-5 deck-blind (0.1%, 1/1000).
-- Best game: **1,973,688 points**, max tile **12288**, seed 172, depth 6, 2055 moves
-  → `results/records/record_1973688.json` (load it in web/replay.html to watch it).
-- Context: 12288 is essentially the ceiling; only a handful of humans/bots have
-  ever done it. Our hand-tuned Expectimax reaches it before any learning.
+### ★ MILESTONE — 12288 tile (game end) reproduced, now firm  [P2 achieved]
+- Deck-aware depth-6 reaches **12288** — two 6144 merging, which ends the game —
+  in **1.1% of games (11/1000)**. Deck-blind reaches it only once at depth 5
+  (0.1%) and never at depth 6 → knowing the deck clearly helps close the game out.
+- Best game: **2,161,704 points** (a 12288 *with a 6144 still on the board*),
+  seed 960, depth 6, 2228 moves → `web/record_12288.json` (watch it in the viewer).
+  Our hand-tuned Expectimax reaches the ceiling before any learning.
+- Context: only a handful of humans/bots have ever reached 12288.
 
-### H1 — Depth sweep, deck-aware — strength vs depth
-| depth | N | mean | median | 3072 | 6144 | 12288 | ms/move |
-|---|---|---|---|---|---|---|---|
-| 1 | 500 | 24,658 | 22,254 | 0.4% | 0% | 0% | 4 |
-| 2 | 500 | 61,193 | 62,619 | 6.2% | 0% | 0% | 3 |
-| 3 | 500 | 117,568 | 86,922 | 28.6% | 1.6% | 0% | 64 |
-| 4 | 500 | 176,111 | 187,518 | 51.4% | 4.4% | 0% | 327 |
-| 5 | 1000 | 251,707 | 219,912 | 69.8% | **15.2%** | 0% | 1334 |
-| 6 | 200 | 319,029 | 253,029 | 77.0% | **22.5%** | 1.5% | 1983 |
-- Monotonic and still climbing at depth 6 (6144: 15.2%→22.5% from d5→d6). Numbers
-  are lower than the old laptop estimates because the bonus preview is now a range
-  (not the exact value) and N is far larger. Cost ~4-5x per depth level.
+### H1 — Strength vs depth, both deck modes (N=1000)
+| depth | mean (blind / aware) | 3072 (b/a) | 6144 (b/a) | 12288 (b/a) | ms/move |
+|---|---|---|---|---|---|
+| 1 | 23,109 / 23,872 | 0.1% / 0.2% | 0% / 0% | 0 / 0 | 4 |
+| 2 | 61,211 / 63,184 | 6.7% / 7.5% | 0% / 0.1% | 0 / 0 | 3 |
+| 3 | 111,253 / 117,292 | 26.1% / 28.8% | 0.9% / 1.3% | 0 / 0 | 70 |
+| 4 | 179,460 / 177,042 | 51.9% / 51.9% | 5.9% / 4.6% | 0 / 0 | 360 |
+| 5 | 234,732 / 251,707 | 68.0% / 69.8% | 11.6% / **15.2%** | 0.1% / 0 | 1380 |
+| 6 | 264,119 / **301,228** | 72.2% / 73.9% | 16.4% / **21.2%** | 0 / **1.1%** | 2600 |
+- Monotonic and still climbing at depth 6 (deck-aware 6144 15.2%→21.2%). ms/move
+  growth *slows* at high depth (d5→d6 only ~1.9×) because the `CprobMin=1e-4`
+  cutoff increasingly binds — depth 7+ gives diminishing returns for rising cost.
 
-### H2 — Deck-aware vs deck-blind @ depth 5 (N=1000, paired seeds 1..1000)
-| metric | deck-blind | deck-aware | Δ |
-|---|---|---|---|
-| score mean | 234,732 | **251,707** | **+7.2%** |
-| score median | 213,213 | 219,912 | +3.1% |
-| 3072 reach | 68.0% | 69.8% | +1.8 pts |
-| 6144 reach | 11.6% | **15.2%** | **+3.6 pts** (~2.4σ) |
-- Deck-aware is a real but **modest** edge at N=1000. The earlier +25% (A1) was a
-  50-game estimate on the over-informed engine; this is the honest number. (The
-  deck-blind max of 1,833,213 is a single lucky 12288 game — tail noise; the mean,
-  median and 6144-rate all favour deck-aware.)
+### H2 — ★ Key finding: the deck-aware advantage GROWS with depth
+| depth | Δ mean (aware − blind) | Δ 6144 |
+|---|---|---|
+| 1 | +3.3% | 0 |
+| 2 | +3.2% | +0.1 |
+| 3 | +5.4% | +0.4 |
+| 4 | −1.3% (noise) | −1.3 |
+| 5 | **+7.2%** | **+3.6** |
+| 6 | **+14.0%** | **+4.8** |
+- Knowing the deck is nearly worthless at shallow depth but worth **+14% mean and
+  +4.8 pts on the 6144 rate at depth 6** — more lookahead is needed to exploit the
+  known upcoming tiles. This depth×deck interaction is the paper's core result;
+  the earlier single-depth ablation (old A1, +25%) missed it entirely.
 
 ---
 
