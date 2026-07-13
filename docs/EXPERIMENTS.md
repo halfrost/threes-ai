@@ -192,8 +192,26 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 
 _Planned: depth 6 (on cloud); heuristic vs N-tuple leaf; beam on/off; TT on/off._
 
-## 5. Training runs (planned — Phase 2/3)
-_N-tuple TD, multi-stage TD; DQN / PPO / AlphaZero-style. Log learning curves + hyperparameters._
+## 5. Training runs (N-tuple TD self-play)
+
+### T1 — Small tuples (4× 4-cell), 5M games, α=0.1 — capacity-limited plateau
+- `cmd/train -games 5000000 -alpha 0.1` (default small tuples). Greedy eval on
+  fixed held-out seeds 1..1000.
+- Learning curve: mean 627 (untrained) → 7,391 @100k → plateaus at **~10,000**
+  for the rest of the 5M games (median ~8,000, 3072 rate stays 0%).
+- Diagnosis: fast rise then a hard flat = **capacity limit**. The 4× 4-cell set
+  (~1 MB) can't represent strong Threes play; greedy caps around the 768-1536 tile.
+- Corroboration: this small model as an expectimax leaf (`ntuple-search`) scores
+  ~52k @depth-3 — still below the hand heuristic at the same depth (deck-aware d3
+  = 117k). So small tuples are insufficient even with search. → motivates BigTuples.
+
+### T2 — Big tuples (4× 6-cell, ~270MB), planned
+- `cmd/train -games 10000000 -alpha 0.1 -tuples big`. 16^6 tables fit in the
+  cloud box's 504 MB L3. Expected to learn slower early (sparse tables) but reach
+  a much higher ceiling; then evaluate greedy and as an expectimax leaf vs the
+  hand heuristic (the paper's learned-value-vs-hand-heuristic comparison).
+
+_Planned later: multi-stage TD; DQN / PPO / AlphaZero-style baselines._
 
 ## 6. Deployment / records (planned — Phase 4)
 _play.threesgame.com, threesjs.io, Android emulator: scores, max tiles, screenshots/videos._
