@@ -24,9 +24,10 @@ import (
 )
 
 type moveReq struct {
-	Board [][]int `json:"board"` // printed values
-	Next  int     `json:"next"`  // value, or <=0 for a bonus "+"
-	Deck  []int   `json:"deck"`  // optional [ones,twos,threes] remaining
+	Board   [][]int `json:"board"`   // printed values
+	Next    int     `json:"next"`    // value, or <=0 for a bonus "+"
+	NextSet []int   `json:"nextset"` // optional exact candidate next values (OCR/deck); overrides Next
+	Deck    []int   `json:"deck"`    // optional [ones,twos,threes] remaining
 }
 
 func toIndexBoard(vals [][]int) [][]int {
@@ -77,7 +78,11 @@ func main() {
 		}
 
 		var nextBrick []int
-		if req.Next >= 1 { // known tile value; index == value for 1/2/3
+		if len(req.NextSet) > 0 { // exact candidate set (OCR next-preview or deck): use verbatim
+			for _, v := range req.NextSet {
+				nextBrick = append(nextBrick, utils.ReValueMap[v])
+			}
+		} else if req.Next >= 1 { // known tile value; index == value for 1/2/3
 			nextBrick = []int{utils.ReValueMap[req.Next]}
 		} else { // bonus "+": average over the possible bonus indices {6..maxTile/8}
 			hi := maxIndex(board) - 3

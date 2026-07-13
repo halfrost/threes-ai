@@ -1,143 +1,177 @@
 """Playwright web driver for Threes leaderboard scoring (Phase 4).
 
 Loop: read the board from the live page -> ask the Go moveserver for the best
-move -> inject the move -> repeat; restart on game over. Works against any web
-Threes (threesjs.io, play.threesgame.com) once `read_board` is wired to that
-site's DOM/canvas.
+move -> press the arrow key -> track the deck -> repeat; restart on game over.
 
-Two board-reading strategies (pick per site, both stubbed below):
-  A. JS-state hook (preferred, exact): eval JS in the page to pull the game's
-     internal board array. Best for open JS clones like threesjs.io — use the
-     browser devtools / `playwright codegen` to find the global or DOM node.
-  B. Canvas OCR: screenshot the board region and classify tiles (reuse the
-     android/ocr exemplar approach). Needed when the board is a <canvas> with no
-     accessible state (e.g. the official play.threesgame.com).
+Board reading (two strategies, pick with --site):
+  threesjs  (DOM, exact): threesjs.io and most JS clones render tiles as DOM
+     elements. We read the board CONTAINER's rectangle and every numbered tile's
+     screen position, then map each tile to a (row,col) by where its centre falls
+     in the container — selector-tolerant and it handles empty cells. Configure
+     the three selectors (board / next / game-over) with --board-selector etc.;
+     run `python probe.py` once to discover them on the live page.
+  threesgame  (canvas, OCR): the official play.threesgame.com draws to a <canvas>
+     with no DOM to read, so we screenshot the board region and OCR it with the
+     shared exemplar matcher (android/ocr). Needs a one-time calibration.
 
-The Go agent runs in `cmd/moveserver` (start it first). This file is a scaffold:
-the browser plumbing and the loop are here; the site-specific `read_board` and
-`inject_move` details are marked TODO.
-
-Setup:  pip install -r requirements.txt && playwright install chromium
-Run:    go run ../../cmd/moveserver -addr :9010 -depthcap 5 -deckaware &
-        python driver.py --url https://threesjs.io/
-Dry run (no browser, tests the moveserver): python driver.py --dry-run
+Start the brain first:  go run ../../cmd/moveserver -addr :9010 -deckaware
+Dry run (no browser):   python driver.py --dry-run
+Live:                   python driver.py --site threesjs --url https://threesjs.io/
 """
 from __future__ import annotations
 import argparse
+import os
+import sys
 import time
-import urllib.request
-import json
 
-MOVE_KEYS = {0: "ArrowUp", 1: "ArrowDown", 2: "ArrowLeft", 3: "ArrowRight"}
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from common import MoveClient, DeckTracker, MOVE_NAME, VALUE  # noqa: E402
 
+ARROW = {0: "ArrowUp", 1: "ArrowDown", 2: "ArrowLeft", 3: "ArrowRight"}
+TILE_VALUES = [str(v) for v in VALUE if v >= 1]
 
-def ask_move(server, board, next_val, deck=None):
-    """POST the board to the Go moveserver; return the move (0..3) or -1."""
-    body = json.dumps({"board": board, "next": next_val, "deck": deck or []}).encode()
-    req = urllib.request.Request(server + "/move", data=body,
-                                 headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.load(resp)["move"]
+# Selector config per site. These are sensible defaults / guesses; finalize them
+# for the live page with probe.py and pass --board-selector / --next-selector /
+# --gameover-selector to override.
+SITES = {
+    "threesjs": dict(
+        url="https://threesjs.io/",
+        board_selector=".board, #board, .grid, .game-board",
+        next_selector=".next, .next-tile, #next, .deck",
+        gameover_selector=".game-over, .gameover, .lose, .end",
+        restart_selector=".new-game, .restart, .try-again, button",
+    ),
+}
 
-
-class DeckTracker:
-    """Tracks the remaining 1/2/3 bag by counting tiles as they appear, so we can
-    play deck-aware on the real site. Reset the count when the bag empties (every
-    12 base tiles). Returns pre-preview counts (what the search expects)."""
-    def __init__(self):
-        self.drawn = [0, 0, 0]
-
-    def note(self, value):
-        if value in (1, 2, 3):
-            self.drawn[value - 1] += 1
-            if sum(self.drawn) >= 12:
-                self.drawn = [0, 0, 0]
-
-    def remaining(self):
-        return [4 - self.drawn[i] for i in range(3)]
-
-
-# ---------------------------------------------------------------------------
-# SITE-SPECIFIC: implement these two for the target site.
-# ---------------------------------------------------------------------------
-def read_board(page):
-    """Return (board_values_4x4, next_value) or (None, None) if game over.
-
-    TODO (Strategy A, threesjs.io): use page.evaluate() to read the game's board
-    array from its JS state, e.g.:
-        state = page.evaluate("() => window.__THREES_STATE__ || null")
-    Inspect the site with `playwright codegen https://threesjs.io/` to find where
-    the board lives (a global, a Vue/React store, or data-* attributes on tiles).
-
-    TODO (Strategy B, canvas / official site): screenshot the board region and OCR
-    each tile (reuse android/ocr's exemplar matcher). Detect game over from the
-    'game over' overlay.
-    """
-    raise NotImplementedError(
-        "wire read_board to the target site (see the docstring: JS hook or OCR)")
+# Injected into the page: return every numbered tile with its on-screen centre,
+# skipping ancestor elements that merely contain a tile's text.
+SCAN_JS = r"""
+(vals) => {
+  const want = new Set(vals);
+  const out = [];
+  for (const el of document.querySelectorAll('*')) {
+    const t = (el.textContent || '').trim();
+    if (!want.has(t)) continue;
+    if ([...el.children].some(c => (c.textContent || '').trim() === t)) continue; // not a leaf
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    out.push({v: parseInt(t, 10), cx: r.left + r.width / 2, cy: r.top + r.height / 2});
+  }
+  return out;
+}
+"""
 
 
-def inject_move(page, move):
-    """Send the move to the page. Most web Threes accept arrow keys; some need a
-    swipe (mouse drag). TODO: verify which the target site uses."""
-    page.keyboard.press(MOVE_KEYS[move])
-    # swipe fallback (uncomment / adjust for touch-only sites):
-    # box = page.locator(".board").bounding_box()
-    # cx, cy = box["x"] + box["width"]/2, box["y"] + box["height"]/2
-    # dx, dy = {0:(0,-120),1:(0,120),2:(-120,0),3:(120,0)}[move]
-    # page.mouse.move(cx, cy); page.mouse.down(); page.mouse.move(cx+dx, cy+dy, steps=8); page.mouse.up()
+def rect_of(page, selector):
+    """boundingClientRect of the first matching element, or None."""
+    return page.evaluate(
+        """(sel) => { for (const s of sel.split(',')) {
+              const el = document.querySelector(s.trim());
+              if (el) { const r = el.getBoundingClientRect();
+                return {x:r.left, y:r.top, w:r.width, h:r.height}; } }
+            return null; }""", selector)
 
 
-def restart(page):
-    """TODO: click the site's 'new game' / 'try again' button after game over."""
-    raise NotImplementedError("wire restart to the target site's new-game control")
+def read_board_dom(page, cfg):
+    """Return (board_values_4x4, next_preview_text) or (None, None) if game over."""
+    if page.query_selector(cfg["gameover_selector"]):
+        return None, None
+    box = rect_of(page, cfg["board_selector"])
+    if not box or box["w"] < 8:
+        return None, None
+    tiles = page.evaluate(SCAN_JS, TILE_VALUES)
+    board = [[0, 0, 0, 0] for _ in range(4)]
+    cw, ch = box["w"] / 4.0, box["h"] / 4.0
+    for t in tiles:
+        # only tiles whose centre is inside the board box are grid tiles
+        col = int((t["cx"] - box["x"]) / cw)
+        row = int((t["cy"] - box["y"]) / ch)
+        if 0 <= row < 4 and 0 <= col < 4:
+            board[row][col] = t["v"]
+    if not any(any(r) for r in board):
+        return None, None  # nothing read -> treat as over / not ready
+    # next-tile preview: text of the next element (a value, or "+" for a bonus)
+    nxt = page.evaluate(
+        """(sel) => { for (const s of sel.split(',')) {
+              const el = document.querySelector(s.trim());
+              if (el) return (el.textContent || '').trim(); } return ''; }""",
+        cfg["next_selector"])
+    return board, nxt
 
 
-def play_loop(url, server, move_delay, games):
+def next_arg(nxt):
+    """Map the next-preview text to (next_val, next_set) for MoveClient.ask."""
+    if nxt and nxt.isdigit():
+        return int(nxt), None       # a concrete tile value (1/2/3 or higher)
+    return 0, None                  # "+" bonus or unknown -> server models the range
+
+
+def play_loop(args, cfg):
     from playwright.sync_api import sync_playwright
+    mc = MoveClient(args.server)
+    print("moveserver:", mc.ping())
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=args.headless)
         page = browser.new_page()
-        page.goto(url)
-        page.wait_for_timeout(2000)
-        for g in range(games):
+        page.goto(args.url or cfg["url"])
+        page.wait_for_timeout(2500)
+        page.click("body")  # focus so arrow keys register
+        for g in range(args.games):
             deck = DeckTracker()
+            moves = 0
             while True:
-                board, next_val = read_board(page)
+                board, nxt = read_board_dom(page, cfg)
                 if board is None:
-                    break  # game over
-                move = ask_move(server, board, next_val, deck.remaining())
+                    break
+                nv, ns = next_arg(nxt)
+                move = mc.ask(board, next_val=nv, next_set=ns, deck=deck.remaining())
                 if move < 0:
                     break
-                if next_val in (1, 2, 3):
-                    deck.note(next_val)
-                inject_move(page, move)
-                time.sleep(move_delay)
-            print(f"game {g+1} finished", flush=True)
-            restart(page)
+                if isinstance(nxt, str) and nxt.isdigit():
+                    deck.note(int(nxt))
+                page.keyboard.press(ARROW[move])
+                moves += 1
+                time.sleep(args.move_delay)
+            print(f"game {g+1}: {moves} moves, over.", flush=True)
+            if args.games > 1 and cfg.get("restart_selector"):
+                el = page.query_selector(cfg["restart_selector"])
+                if el:
+                    el.click()
+                    page.wait_for_timeout(1500)
         browser.close()
 
 
 def dry_run(server):
-    """Test the moveserver with a fixed board, no browser."""
+    mc = MoveClient(server)
+    print("moveserver:", mc.ping())
     board = [[1, 2, 0, 0], [3, 6, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-    move = ask_move(server, board, next_val=1)
-    print(f"dry-run: moveserver returned move={move} "
-          f"({['UP','DOWN','LEFT','RIGHT'][move] if move>=0 else 'none'})")
+    m = mc.ask(board, next_val=1, deck=[3, 3, 4])
+    print(f"dry-run: move={m} ({MOVE_NAME.get(m, 'none')})")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="https://threesjs.io/")
+    ap.add_argument("--site", default="threesjs", choices=list(SITES))
+    ap.add_argument("--url", default="")
     ap.add_argument("--server", default="http://127.0.0.1:9010")
-    ap.add_argument("--move-delay", type=float, default=0.15)
-    ap.add_argument("--games", type=int, default=100)
+    ap.add_argument("--move-delay", type=float, default=0.12)
+    ap.add_argument("--games", type=int, default=1)
+    ap.add_argument("--headless", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args()
-    if args.dry_run:
-        dry_run(args.server)
-    else:
-        play_loop(args.url, args.server, args.move_delay, args.games)
+    ap.add_argument("--board-selector", default="")
+    ap.add_argument("--next-selector", default="")
+    ap.add_argument("--gameover-selector", default="")
+    ap.add_argument("--restart-selector", default="")
+    a = ap.parse_args()
+    if a.dry_run:
+        dry_run(a.server)
+        return
+    cfg = dict(SITES[a.site])
+    for k in ("board", "next", "gameover", "restart"):
+        v = getattr(a, f"{k}_selector")
+        if v:
+            cfg[f"{k}_selector"] = v
+    play_loop(a, cfg)
 
 
 if __name__ == "__main__":
