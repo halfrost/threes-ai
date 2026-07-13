@@ -35,12 +35,32 @@ func init() {
 // squares. With the 8 symmetries these already cover all rows, columns and
 // quadrants. Each 4-cell tuple is a 16^4 = 65536-entry table (256 KB as
 // float32), so the whole network is ~1 MB — small, fast, and downloadable for a
-// WASM demo. Larger 6-cell tuples can be swapped in later for more strength.
+// WASM demo, but too low-capacity for strong play (it plateaus quickly).
 var DefaultTuples = [][]int{
 	{0, 1, 2, 3},  // top edge line
 	{4, 5, 6, 7},  // second row line
 	{0, 1, 4, 5},  // top-left 2x2 square
 	{1, 2, 5, 6},  // top-middle 2x2 square
+}
+
+// BigTuples is the higher-capacity set for strong play: 6-cell shapes (2x3 / 3x2
+// rectangles and an L). Each is a 16^6 = 16.7M-entry table (~67 MB as float32),
+// ~270 MB total — the standard size range for strong 2048/Threes N-tuple nets
+// (Szubert & Jaskowski, Matsuzaki). Too large to ship to a browser, but the
+// right choice for the research model trained on the cloud box.
+var BigTuples = [][]int{
+	{0, 1, 2, 4, 5, 6},  // 2x3 rectangle
+	{0, 1, 2, 3, 4, 5},  // top row + two below
+	{0, 1, 4, 5, 8, 9},  // 3x2 rectangle
+	{1, 2, 5, 6, 9, 10}, // 3x2 rectangle, centre
+}
+
+// TuplesByName selects a named tuple set ("small" or "big").
+func TuplesByName(name string) [][]int {
+	if name == "big" {
+		return BigTuples
+	}
+	return DefaultTuples
 }
 
 // Network is an N-tuple value function.

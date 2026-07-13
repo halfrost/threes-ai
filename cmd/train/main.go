@@ -115,6 +115,7 @@ func main() {
 	trainSeed := flag.Int64("train-seed", 10_000_000, "base seed for training games (disjoint from eval)")
 	out := flag.String("out", "models/ntuple.gob", "save the trained network here")
 	resume := flag.String("resume", "", "resume from an existing network file")
+	tuples := flag.String("tuples", "small", "tuple set: small (4x 4-cell, ~1MB) | big (4x 6-cell, ~270MB, stronger)")
 	flag.Parse()
 
 	var net *ntuple.Network
@@ -126,7 +127,7 @@ func main() {
 		}
 		fmt.Printf("Resumed network from %s (%d tuples)\n", *resume, len(net.Tuples))
 	} else {
-		net = ntuple.New(ntuple.DefaultTuples)
+		net = ntuple.New(ntuple.TuplesByName(*tuples))
 	}
 
 	fmt.Printf("Training %d games, alpha=%.3f, %d tuples, eval seeds 1..%d (train seeds from %d)\n",
