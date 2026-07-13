@@ -43,6 +43,26 @@ codesign -s - -f ../../bin/moveserver      # avoids the kernel's "Killed: 9"
 ```
 (Linux — including the cloud boxes — is unaffected; plain `go run`/`go build` works there.)
 
+## threesjs.io is Unity WebGL — use `threesjs_driver.py`
+It turned out threesjs.io renders the board with **Unity WebGL** (a `<canvas>`,
+no DOM tiles), so the generic DOM `driver.py` doesn't apply to it. Use the
+dedicated, verified `threesjs_driver.py`, which screenshots the canvas and reads
+tiles by colour+OCR, then presses arrow keys. First do the one-time environment
+setup (corporate-proxy CA + system Chrome):
+```bash
+bash setup_env.sh                     # keychain CA -> ~/.threes-ca.pem, deps, system Chrome
+go run ../../cmd/moveserver -addr :9010 -deckaware &
+# first run (headed): clear the one-time Unity tutorial by hand, then it hands over
+SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --headed --tutorial-pause --user-data-dir ~/.threes-profile
+# afterwards (headless): auto-play, the profile skips the tutorial
+SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --user-data-dir ~/.threes-profile
+```
+Verified live: launches the system Chrome, dismisses the portal loader
+(`none_loadding()`), collapses the sidebar, starts the game, reads the board
+(1=red, 2=blue, empty=teal, >=3 via OCR), and moves with arrow keys. The
+remaining manual step is clearing the first-time tutorial once (Unity keeps that
+in IndexedDB, hence the persistent `--user-data-dir`).
+
 ## How board reading works (two strategies)
 - **threesjs.io / DOM clones (`--site threesjs`, exact):** tiles are DOM elements.
   `probe.py` finds every numbered tile and the smallest element that bounds them
