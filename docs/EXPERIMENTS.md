@@ -230,8 +230,16 @@ _Planned: depth 6 (on cloud); heuristic vs N-tuple leaf; beam on/off; TT on/off.
   can a learned leaf let a *shallower* search match a *deeper* hand-heuristic one
   (a compute win), and/or lift the 3072/6144 rates? (Results: TBD.)
 
-_Planned later: α annealing / temporal-coherence learning to push the greedy
-asymptote past 21k; larger/more tuples; DQN / PPO / AlphaZero-style baselines._
+### T4 — big2 + temporal-coherence + α anneal, to break the T2 plateau — ready to run
+- `scripts/train_big2_tc.sh` → `models/ntuple_big2_tc.gob`. Three levers stacked
+  on T2: (a) **big2** tuple set — eight 6-cell shapes (~540 MB), ~2x the capacity
+  of big; (b) **temporal-coherence** (`train -tc`) — per-weight adaptive step
+  |N_i|/A_i that damps oscillating weights (~1.6 GB resident); (c) **α anneal**
+  (`-alpha-final`) — linear decay so the run settles instead of dithering at a
+  constant 0.1. Hypothesis: greedy asymptote clears the T2 ~21k ceiling; then
+  re-run T3 with this model as the leaf. (Results: TBD.)
+
+_Planned later: DQN / PPO / AlphaZero-style baselines (Phase 3, needs a GPU box)._
 
 ## 6. Deployment / records (planned — Phase 4)
 _play.threesgame.com, threesjs.io, Android emulator: scores, max tiles, screenshots/videos._

@@ -55,18 +55,46 @@ var BigTuples = [][]int{
 	{1, 2, 5, 6, 9, 10}, // 3x2 rectangle, centre
 }
 
-// TuplesByName selects a named tuple set ("small" or "big").
+// BigTuples2 is the highest-capacity set: eight 6-cell shapes spread over the
+// top/middle/bottom bands and the left/right columns, so with the 8 symmetries
+// they cover the board more densely than BigTuples. ~536 MB of weights as
+// float32 (8 x 16^6 x 4B), roughly double BigTuples — the option for pushing
+// past the 4x6 greedy plateau (T2). With temporal-coherence accumulators on
+// (train -tc) it needs ~3x that (~1.6 GB), which the cloud box can hold.
+var BigTuples2 = [][]int{
+	{0, 1, 2, 4, 5, 6},    // 2x3 top-left
+	{1, 2, 3, 5, 6, 7},    // 2x3 top-right
+	{4, 5, 6, 8, 9, 10},   // 2x3 middle band
+	{5, 6, 7, 9, 10, 11},  // 2x3 middle-right
+	{0, 1, 4, 5, 8, 9},    // 3x2 left column
+	{1, 2, 5, 6, 9, 10},   // 3x2 centre column
+	{2, 3, 6, 7, 10, 11},  // 3x2 right column
+	{4, 5, 8, 9, 12, 13},  // 3x2 lower-left
+}
+
+// TuplesByName selects a named tuple set ("small", "big", or "big2").
 func TuplesByName(name string) [][]int {
-	if name == "big" {
+	switch name {
+	case "big":
 		return BigTuples
+	case "big2":
+		return BigTuples2
+	default:
+		return DefaultTuples
 	}
-	return DefaultTuples
 }
 
 // Network is an N-tuple value function.
 type Network struct {
 	Tuples  [][]int     `json:"tuples"`
 	Weights [][]float32 `json:"weights"`
+
+	// Temporal-coherence accumulators (training-only, NOT serialised — they are
+	// unexported so gob skips them). Per weight: tcN is the signed sum of its
+	// updates, tcA the absolute sum; their ratio is the weight's coherence.
+	// Allocated by EnableTC; a resumed model restarts its TC state fresh.
+	tcN [][]float32
+	tcA [][]float32
 }
 
 // New creates a zero-initialised network for the given tuple shapes.
@@ -115,6 +143,51 @@ func (n *Network) Update(board uint64, delta float64) {
 		w := n.Weights[t]
 		for s := 0; s < 8; s++ {
 			w[n.feature(board, t, s)] += per
+		}
+	}
+}
+
+// EnableTC allocates the temporal-coherence accumulators so training can use a
+// per-weight adaptive step size (UpdateTC). Call once before training. The
+// accumulators are not serialised, so a resumed model starts its TC state fresh.
+func (n *Network) EnableTC() {
+	n.tcN = make([][]float32, len(n.Weights))
+	n.tcA = make([][]float32, len(n.Weights))
+	for t := range n.Weights {
+		n.tcN[t] = make([]float32, len(n.Weights[t]))
+		n.tcA[t] = make([]float32, len(n.Weights[t]))
+	}
+}
+
+// TCEnabled reports whether EnableTC has been called.
+func (n *Network) TCEnabled() bool { return n.tcN != nil }
+
+func abs32(x float32) float32 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// UpdateTC is the temporal-coherence variant of Update: it splits tdError across
+// the active weights and scales each weight's step by its own coherence
+// |N_i|/A_i in [0,1] — weights whose updates agree in sign keep the full rate,
+// oscillating ones are damped (a self-tuning per-weight learning rate on top of
+// the global, possibly-annealed, alpha). Requires EnableTC.
+func (n *Network) UpdateTC(board uint64, tdError, alpha float64) {
+	e := float32(tdError / float64(len(n.Tuples)*8))
+	a := float32(alpha)
+	for t := range n.Tuples {
+		w, N, A := n.Weights[t], n.tcN[t], n.tcA[t]
+		for s := 0; s < 8; s++ {
+			i := n.feature(board, t, s)
+			beta := float32(1)
+			if A[i] > 0 {
+				beta = abs32(N[i]) / A[i]
+			}
+			w[i] += a * beta * e
+			N[i] += e
+			A[i] += abs32(e)
 		}
 	}
 }
