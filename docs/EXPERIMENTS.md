@@ -205,13 +205,33 @@ _Planned: depth 6 (on cloud); heuristic vs N-tuple leaf; beam on/off; TT on/off.
   ~52k @depth-3 — still below the hand heuristic at the same depth (deck-aware d3
   = 117k). So small tuples are insufficient even with search. → motivates BigTuples.
 
-### T2 — Big tuples (4× 6-cell, ~270MB), planned
-- `cmd/train -games 10000000 -alpha 0.1 -tuples big`. 16^6 tables fit in the
-  cloud box's 504 MB L3. Expected to learn slower early (sparse tables) but reach
-  a much higher ceiling; then evaluate greedy and as an expectimax leaf vs the
-  hand heuristic (the paper's learned-value-vs-hand-heuristic comparison).
+### T2 — Big tuples (4× 6-cell, ~270MB), 10M games, α=0.1 — breaks the T1 plateau
+- `cmd/train -games 10000000 -alpha 0.1 -tuples big -eval-every 200000 -eval-n 1000`
+  → `models/ntuple_big.gob`. Greedy eval on held-out seeds 1..1000. Wall 17,375s
+  (~4.8h) on the 240-core box. (Curve extracted with `scripts/learning_curve.py`.)
+- Learning curve (greedy mean / median): 627/468 → 11.1k/9.3k @1M → 15.5k/10.0k
+  @2.4M → **20.9k / 21.5k @10M** (peak mean 21.4k @9.2M). Near-saturating: mean
+  reaches 95% of final by ~7.4M.
+- **Key result — capacity WAS the bottleneck.** Big tuples roughly double the
+  small-tuple ceiling (mean ~10k → ~21k), confirming T1's plateau was the ~1 MB
+  weight table, not training time or α.
+- **Phase-transition in the median** (nice figure for the paper): median sits at
+  ~9-10k (like T1) until ~4M games, then jumps to ~21k over 4M–5.6M (bimodal
+  during the crossover), then holds. Interpretation: the policy crosses a
+  threshold where it *reliably builds a 768 tile* (768 = 19,683 pts ≈ median).
+- Caveat: still a **depth-0 greedy** policy — 3072 rate stays 0% throughout, best
+  games top out at 1536 (max score ~88k). An order of magnitude below the depth-6
+  expectimax (6144 @21%). Its real job is as a **search leaf** → T3.
 
-_Planned later: multi-stage TD; DQN / PPO / AlphaZero-style baselines._
+### T3 — Big-tuple value function as an expectimax leaf vs the hand heuristic — running
+- `scripts/eval_ntuple_search.sh models/ntuple_big.gob` — for depths 3/4/5, same
+  seeds, `ntuple-search` (learned leaf) vs `expectimax` (hand heuristic), both
+  deck-aware, N=1000. The paper's central learned-value-vs-hand-heuristic test:
+  can a learned leaf let a *shallower* search match a *deeper* hand-heuristic one
+  (a compute win), and/or lift the 3072/6144 rates? (Results: TBD.)
+
+_Planned later: α annealing / temporal-coherence learning to push the greedy
+asymptote past 21k; larger/more tuples; DQN / PPO / AlphaZero-style baselines._
 
 ## 6. Deployment / records (planned — Phase 4)
 _play.threesgame.com, threesjs.io, Android emulator: scores, max tiles, screenshots/videos._
