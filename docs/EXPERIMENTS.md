@@ -241,5 +241,36 @@ _Planned: depth 6 (on cloud); heuristic vs N-tuple leaf; beam on/off; TT on/off.
 
 _Planned later: DQN / PPO / AlphaZero-style baselines (Phase 3, needs a GPU box)._
 
-## 6. Deployment / records (planned — Phase 4)
-_play.threesgame.com, threesjs.io, Android emulator: scores, max tiles, screenshots/videos._
+## 6. Deployment / records (Phase 4 — live web scoring)
+
+The strong deck-aware expectimax (`cmd/moveserver`, depth-cap 5) driving real web
+Threes end-to-end. Each driver reads the live board, asks the Go moveserver, presses
+the arrow key, and records the game as a replay in the exact `engine/replay.go`
+schema (plays in `web/replay.html`); `deploy/recorder.py` keeps only the best game.
+
+| Site | Engine | Final score | Max tile | Moves | Player name |
+|------|--------|------------:|---------:|------:|-------------|
+| threesjs.io (Unity WebGL) | canvas colour+OCR, engine-in-the-loop | **9,798** | 384 | 400 | Github halfrost |
+| play.threesgame.com (WebGL) | localStorage slot.0 (exact board) | **23,634** | 768 | 407 | Github halfrost |
+
+Both to a genuine game over (full board, no legal move). Replays + settlement views
+under `results/replays/{threesjs,threesgame}/` (gitignored artifacts).
+
+**Two engineering findings worth a paragraph in the blog/paper:**
+- **Board is exact from localStorage, no vision needed.** `play.threesgame.com`
+  (Threes.min.js) persists the live game to `localStorage["com.underscorediscovery/
+  Threes/slot.0"]` every move — a haxe-serialized `Grid0..15`, `NextValue`,
+  `NumMoves`, `InProgress`. Decoding it gives the exact board (all high tiles) with
+  no OCR and no canvas capture. **Gotcha:** `Grid0..3` is the *bottom* screen row —
+  read rows bottom-to-top or the board is vertically flipped, which silently inverts
+  UP/DOWN and eventually strands the run (moveserver returns a move that's legal on
+  the flipped board but a no-op in the game). Found via engine-vs-game legality diff.
+- **The WebGL page wedges under automation; recover by killing, not waiting.**
+  Repeatedly automating the animating WebGL page intermittently wedges the
+  Chrome↔Playwright channel — an in-flight keypress/read blocks forever, and page
+  timeouts, CDP timeouts, and SIGALRM all fail to interrupt the sync greenlet. The
+  only reliable cure is to kill the whole process. `threesgame_supervisor.py` runs
+  the driver on a persistent profile; on a heartbeat stall it SIGKILLs and relaunches
+  — the game persisted itself to slot.0, so it resumes the exact in-progress board
+  (a full replay is assembled from a JSONL move log across restarts). The 23,634 game
+  took 47 relaunches through 22 wedges; 11/407 replay steps show a one-ply seam.

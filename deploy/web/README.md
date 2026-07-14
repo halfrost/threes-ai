@@ -82,11 +82,38 @@ persistent `--user-data-dir` means only the first run spends moves on it.
   its centre falls, so it works without knowing class names and handles empty
   cells. Selectors are only needed to *locate* the container / next / game-over;
   pass them with `--board-selector` etc.
-- **play.threesgame.com / canvas (`--site threesgame`, OCR):** the board is a
-  `<canvas>` with no DOM. `probe.py` will report `canvas present` and no tiles →
-  screenshot the board region and OCR it with the shared exemplar matcher
-  (`android/ocr`), the same code the Android/iOS drivers use. Needs a one-time
-  per-resolution calibration (see `../android/README.md`).
+- **play.threesgame.com / WebGL (`threesgame_driver.py` + `threesgame_supervisor.py`):**
+  no OCR and no canvas capture — the game persists its live board to
+  `localStorage["com.underscorediscovery/Threes/slot.0"]` every move (haxe-serialized
+  `Grid0..15` / `NextValue` / `NumMoves` / `InProgress`), read browser-side over CDP
+  `DOMStorage`. See below.
+
+## play.threesgame.com — `threesgame_supervisor.py` (localStorage + watchdog)
+The official web is a WebGL `<canvas>` with no DOM, but it saves the exact live game
+to `localStorage` slot.0, so we decode that instead of reading pixels:
+```bash
+go run ../../cmd/moveserver -addr :9053 -deckaware &      # (macOS: see build note above)
+SSL_CERT_FILE=~/.threes-ca.pem python threesgame_supervisor.py \
+    --server http://127.0.0.1:9053 --games 1 \
+    --record-dir ../../results/replays/threesgame
+```
+- `threesgame_driver.py` plays ONE resumable game: seeds the tutorial-skip value
+  (`threesgame_skip_tutorial.json`) only when slot.0 is absent, presses Space, then
+  each move reads+decodes slot.0, asks the moveserver, presses the arrow, waits for
+  the move to register **and the spawned tile to settle**, and appends the ply to a
+  JSONL log. Game over = moveserver returns -1 (no legal move).
+  - **Orientation gotcha:** `Grid0..3` is the *bottom* screen row. Read rows
+    bottom-to-top, else the board is vertically flipped and UP/DOWN invert — moveserver
+    then returns a move that's a no-op in the real game and the run gets stuck.
+- `threesgame_supervisor.py` exists because automating this animating WebGL page
+  intermittently **wedges** the Chrome↔Playwright channel (an in-flight keypress/read
+  blocks forever; page/CDP timeouts and SIGALRM can't interrupt the sync greenlet). It
+  runs the driver on a persistent profile and, when the JSONL heartbeat stalls, SIGKILLs
+  and relaunches — the game resumed itself from slot.0, so play continues. The full
+  replay is assembled from the JSONL across restarts. Until 2 moves are safely banked
+  it wipes and starts fresh (a game wedged at 0 moves reloads into a non-interactive
+  limbo). The settlement screenshot reads back black (WebGL), so a clean settlement
+  card is rendered from the replay's terminal board instead.
 
 ## Notes
 - Deck-aware relies on `DeckTracker` counting every 1/2/3 as it appears (resets
