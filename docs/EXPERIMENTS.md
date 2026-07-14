@@ -250,11 +250,15 @@ schema (plays in `web/replay.html`); `deploy/recorder.py` keeps only the best ga
 
 | Site | Engine | Final score | Max tile | Moves | Player name |
 |------|--------|------------:|---------:|------:|-------------|
-| threesjs.io (Unity WebGL) | canvas colour+OCR, engine-in-the-loop | **9,798** | 384 | 400 | Github halfrost |
+| threesjs.io (Unity WebGL) | canvas colour+OCR, engine-in-the-loop | **9,993** | 384 | 431 | Github halfrost |
 | play.threesgame.com (WebGL) | localStorage slot.0 (exact board) | **23,634** | 768 | 407 | Github halfrost |
 
-Both to a genuine game over (full board, no legal move). Replays + settlement views
-under `results/replays/{threesjs,threesgame}/` (gitignored artifacts).
+Both to a genuine game over ("Out of moves!"). For each we captured the site's own
+**score-settlement screen** — threesjs.io shows `Your score: 9,993` on its Unity
+game-over screen; play.threesgame.com flips every tile to its point value and
+tallies `23,634` (the WebGL buffer must be preserved to screenshot it non-black,
+and the reveal only arms on a live game over). Replays + these settlement
+screenshots under `results/replays/{threesjs,threesgame}/` (gitignored artifacts).
 
 **Two engineering findings worth a paragraph in the blog/paper:**
 - **Board is exact from localStorage, no vision needed.** `play.threesgame.com`
