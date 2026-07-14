@@ -52,16 +52,16 @@ setup (corporate-proxy CA + system Chrome):
 ```bash
 bash setup_env.sh                     # keychain CA -> ~/.threes-ca.pem, deps, system Chrome
 go run ../../cmd/moveserver -addr :9010 -deckaware &
-# first run (headed): clear the one-time Unity tutorial by hand, then it hands over
-SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --headed --tutorial-pause --user-data-dir ~/.threes-profile
-# afterwards (headless): auto-play, the profile skips the tutorial
+# the agent plays through the one-time tutorial itself; the profile saves it so
+# later runs start straight in free play.
 SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --user-data-dir ~/.threes-profile
 ```
-Verified live: launches the system Chrome, dismisses the portal loader
-(`none_loadding()`), collapses the sidebar, starts the game, reads the board
-(1=red, 2=blue, empty=teal, >=3 via OCR), and moves with arrow keys. The
-remaining manual step is clearing the first-time tutorial once (Unity keeps that
-in IndexedDB, hence the persistent `--user-data-dir`).
+Verified live (headless): launches the system Chrome, dismisses the portal loader
+(`none_loadding()`), collapses the sidebar, starts the game, **auto-clears the
+first-time tutorial**, then plays free games — reading the board and the next-tile
+preview cleanly (1=red, 2=blue, empty=teal, >=3 via OCR) and moving with arrow
+keys until game over. Unity keeps tutorial completion in IndexedDB, so the
+persistent `--user-data-dir` means only the first run spends moves on it.
 
 ## How board reading works (two strategies)
 - **threesjs.io / DOM clones (`--site threesjs`, exact):** tiles are DOM elements.

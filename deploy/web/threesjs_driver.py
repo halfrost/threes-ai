@@ -11,9 +11,10 @@ What was reverse-engineered (all confirmed live):
   - the portal shows a loader with a "Play" button that just calls none_loadding()
     to reveal the already-running Unity game; collapse the right sidebar via its
     ">>" toggle so the board isn't occluded; click "PLAY THREES" on the canvas.
-  - a first-time TUTORIAL gates free play. Unity stores completion in IndexedDB,
-    so use a persistent --user-data-dir and clear the tutorial ONCE in --headed
-    mode; afterwards headless runs go straight to scoring.
+  - a first-time TUTORIAL precedes free play; the AGENT plays through it on its
+    own (no manual step). Unity stores completion in IndexedDB, so pass a
+    persistent --user-data-dir and later runs start straight in free play (board
+    + next preview read cleanly there — verified).
   - tiles: 1 = red, 2 = blue, empty = pale teal (classified by mean colour);
     >= 3 are white tiles whose digit is read by tesseract. Arrow keys move.
 
@@ -21,8 +22,9 @@ Board geometry is calibrated for a 1100x1000 viewport.
 
 Run:
   go run ../../cmd/moveserver -addr :9010 -deckaware &
-  SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --headed --user-data-dir ~/.threes-profile   # once
-  SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --user-data-dir ~/.threes-profile             # then
+  # first run plays through the tutorial itself and saves it to the profile;
+  # every later run then starts directly in free play.
+  SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --user-data-dir ~/.threes-profile
 """
 from __future__ import annotations
 import argparse
