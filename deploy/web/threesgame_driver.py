@@ -37,25 +37,37 @@ from recorder import GameRecorder, BestKeeper  # noqa: E402
 from threes_env import apply_move, _lane_cells  # noqa: E402
 
 ARROW = {0: "ArrowUp", 1: "ArrowDown", 2: "ArrowLeft", 3: "ArrowRight"}
-COLC = [331, 523, 716, 908]                 # tile-centre px, device_scale_factor=3
-ROWC = [512, 771, 1029, 1288]
-NEXT_XY = (616, 214)                        # next-tile preview (top centre)
-BOARD_CLIP = {"x": 231, "y": 382, "width": 777, "height": 1036}
+# Coordinates are in the canvas.toDataURL image (948x1428 at device_scale_factor=3).
+# We read the WebGL canvas directly with toDataURL, NOT page.screenshot — the latter
+# hangs on this continuously-animating GPU canvas after many grabs. toDataURL is fast
+# and stable once the drawing buffer is preserved (via _PATCH below).
+COLC = [187, 379, 572, 764]
+ROWC = [446, 705, 963, 1222]
+NEXT_XY = (472, 148)
+BOARD_BOX = (87, 316, 864, 1352)            # canvas crop for the move-change signature
 _SKIP = json.load(open(os.path.join(os.path.dirname(__file__), "threesgame_skip_tutorial.json")))
+# Force preserveDrawingBuffer so canvas.toDataURL returns the rendered frame (else black).
+_PATCH = ("(()=>{const o=HTMLCanvasElement.prototype.getContext;"
+          "HTMLCanvasElement.prototype.getContext=function(t,a){"
+          "if(t==='webgl'||t==='webgl2'||t==='experimental-webgl'){"
+          "a=Object.assign({},a,{preserveDrawingBuffer:true});}"
+          "return o.call(this,t,a);};})();")
 
 
-GAME_CLIP = {"x": 0, "y": 0, "width": 1080, "height": 1500}   # board+next; keeps coords
-
-
-def _png(pg, clip):
-    """Screenshot a clip with a short timeout + one retry — the official Threes
-    canvas animates continuously and an occasional full-frame grab hangs."""
-    for _ in range(2):
+def read_canvas(pg, tries=4):
+    """The game canvas as a PIL image via toDataURL. Repeated GPU read-back can
+    eventually stall, so each call has the page's (short) timeout + retries."""
+    import base64
+    from PIL import Image
+    for _ in range(tries):
         try:
-            return pg.screenshot(type="png", clip=clip, timeout=8000, animations="disabled")
+            u = pg.evaluate("()=>{const c=document.querySelector('canvas');return c?c.toDataURL('image/png'):'';}")
         except Exception:
-            pg.wait_for_timeout(300)
-    return pg.screenshot(type="png", clip=clip, timeout=15000, animations="disabled")
+            pg.wait_for_timeout(500); continue
+        if u.startswith("data:image"):
+            return Image.open(io.BytesIO(base64.b64decode(u.split(',', 1)[1]))).convert("RGB")
+        pg.wait_for_timeout(200)
+    return None
 
 
 def _mean(im, x, y, h):
@@ -79,24 +91,23 @@ def _classify(im, x, y, h=48):
 
 
 def wait_stable(pg, tries=7, gap=80):
-    from PIL import Image, ImageChops
-    prev = None
+    """Read the canvas until the board region settles; returns the settled image."""
+    from PIL import ImageChops
+    prev, im = None, None
     for _ in range(tries):
-        im = Image.open(io.BytesIO(_png(pg, BOARD_CLIP))).convert("L").resize((60, 80))
-        if prev is not None and sum(ImageChops.difference(im, prev).getdata()) < 300:
-            return
-        prev = im
+        im = read_canvas(pg)
+        if im is None:
+            pg.wait_for_timeout(gap); continue
+        cur = im.crop(BOARD_BOX).convert("L").resize((60, 80))
+        if prev is not None and sum(ImageChops.difference(cur, prev).getdata()) < 300:
+            return im
+        prev = cur
         pg.wait_for_timeout(gap)
+    return im
 
 
-def board_signature(pg):
-    from PIL import Image
-    return Image.open(io.BytesIO(_png(pg, BOARD_CLIP))).convert("L").resize((44, 60)).tobytes()
-
-
-def snap(pg):
-    from PIL import Image
-    return Image.open(io.BytesIO(_png(pg, GAME_CLIP))).convert("RGB")
+def board_sig(im):
+    return im.crop(BOARD_BOX).convert("L").resize((44, 60)).tobytes()
 
 
 def read_board(im):
@@ -112,9 +123,11 @@ def play(a):
         browser = p.chromium.launch(channel="chrome", headless=not a.headed,
                                     args=["--ignore-certificate-errors"])
         ctx = browser.new_context(viewport={"width": 420, "height": 760}, device_scale_factor=3)
+        ctx.add_init_script(_PATCH)             # preserveDrawingBuffer, BEFORE the WebGL context
         ctx.add_init_script(f"try{{localStorage.setItem({json.dumps(_SKIP['localStorage_key'])},"
                             f"{json.dumps(_SKIP['localStorage_value'])});}}catch(e){{}}")
         pg = ctx.new_page()
+        pg.set_default_timeout(6000)            # so a stalled toDataURL evaluate fails fast
         pg.goto("https://play.threesgame.com/", wait_until="domcontentloaded", timeout=30000)
 
         def begin():
@@ -122,29 +135,26 @@ def play(a):
             pg.keyboard.press("Space")          # "PLAY THREES"
             pg.wait_for_timeout(1500)
 
-        def read_stable():
-            wait_stable(pg)
-            for _ in range(3):
-                im = snap(pg)
-                bd, nx = read_board(im)
-                if all(v >= 0 for row in bd for v in row):
-                    return im, bd, nx
-                pg.wait_for_timeout(200)
-            return im, bd, nx
+        def canvas_png():
+            import base64
+            u = pg.evaluate("()=>{const c=document.querySelector('canvas');return c?c.toDataURL('image/png'):'';}")
+            return base64.b64decode(u.split(',', 1)[1]) if u.startswith("data:image") else None
 
         def play_one_game():
             rec = GameRecorder(agent="threesgame-web-expectimax", depth_cap=a.depth_cap)
             deck = DeckTracker()
-            board = None
+            board, nxt = None, -1
             for _ in range(8):
-                _, bv, nxt = read_stable()
-                if any(v > 0 for row in bv for v in row):
-                    board = [[INDEX.get(v, 0) for v in row] for row in bv]
-                    break
+                im = wait_stable(pg)
+                if im is not None:
+                    bv, nxt = read_board(im)
+                    if any(v > 0 for row in bv for v in row):
+                        board = [[INDEX.get(v, 0) for v in row] for row in bv]
+                        break
                 pg.wait_for_timeout(500)
             if board is None:
                 rec.finish([[0] * 4 for _ in range(4)]); return 0, 0, rec, 0
-            best_tile, desyncs = 0, 0
+            best_tile, desyncs, fails = 0, 0, 0
             for step in range(a.moves):
                 vals = [[VALUE[v] for v in row] for row in board]
                 best_tile = max(best_tile, max(VALUE[v] for row in board for v in row))
@@ -152,33 +162,52 @@ def play(a):
                 best = mc.ask(vals, next_val=nv, deck=deck.remaining())
                 if best < 0:
                     rec.finish(vals); return step, best_tile, rec, desyncs
-                rec.record(vals, nv, best)
-                if nv in (1, 2, 3):
-                    deck.note(nv)
-                sig0 = board_signature(pg)
-                pg.keyboard.press(ARROW[best]); time.sleep(a.move_delay)
-                wait_stable(pg)
-                im = snap(pg)
-                if board_signature(pg) == sig0:
-                    desyncs += 1
-                    if rec.steps:
-                        rec.steps.pop()
-                    bv, nxt = read_board(im)
-                    if any(v > 0 for row in bv for v in row):
-                        board = [[INDEX.get(v, 0) for v in row] for row in bv]
-                    continue
-                nb, changed, _ = apply_move(board, best)
-                for li in range(4):
-                    if not changed[li]:
+                # Verify the move by the SPAWN, not by OCR'ing the whole board (the
+                # colour reader can't tell 3/6/12/... apart, so a full re-read would
+                # destroy the engine's high tiles). A real move drops a new tile on
+                # a changed lane's edge cell. Press the best move; if no spawn shows
+                # (a no-op on the real board), fall through the other legal
+                # directions. The engine board is never overwritten from OCR.
+                moved, capture_dead = False, False
+                for j, m in enumerate([best] + [d for d in (0, 1, 2, 3) if d != best]):
+                    nb, changed, eng_moved = apply_move(board, m)
+                    if not eng_moved:
                         continue
-                    r, c = _lane_cells(best, li)[3]
-                    cv = _classify(im, COLC[c], ROWC[r])
-                    if cv != 0:
-                        sv = nv if nv in (1, 2, 3) else cv
-                        nb[r][c] = INDEX.get(sv, 0)
-                        break
-                board = nb
-                _, nxt = read_board(im)
+                    pg.keyboard.press(ARROW[m])
+                    time.sleep(a.move_delay)
+                    pg.wait_for_timeout(200)
+                    im2 = read_canvas(pg)
+                    if im2 is None:
+                        capture_dead = True; break
+                    spawn = None
+                    for li in range(4):
+                        if not changed[li]:
+                            continue
+                        r, c = _lane_cells(m, li)[3]
+                        if _classify(im2, COLC[c], ROWC[r]) != 0:
+                            spawn = (r, c); break
+                    if spawn is None:
+                        if j > 0:
+                            desyncs += 1
+                        continue                       # no spawn -> real board unchanged, try next dir
+                    r, c = spawn
+                    sv = nv if nv in (1, 2, 3) else _classify(im2, COLC[c], ROWC[r])
+                    nb[r][c] = INDEX.get(sv, 0)
+                    rec.record(vals, nv, m)            # exact board BEFORE + the move that actually applied
+                    if nv in (1, 2, 3):
+                        deck.note(nv)
+                    board, im = nb, im2
+                    _, nxt = read_board(im2)
+                    moved = True
+                    break
+                if capture_dead:
+                    fails += 1
+                    if fails > 6:
+                        rec.finish(vals); return step, best_tile, rec, desyncs
+                    pg.wait_for_timeout(600); continue
+                fails = 0
+                if not moved:                          # no direction changed the real board -> game over
+                    rec.finish(vals); return step, best_tile, rec, desyncs
                 if step % 20 == 0:
                     print(f"  step {step}: max {best_tile} score {rec.final_score()} "
                           f"next {nv} move {MOVE_NAME[best]} desync {desyncs}")
@@ -190,7 +219,7 @@ def play(a):
         for game in range(a.games):
             steps, best_tile, rec, desyncs = play_one_game()
             pg.wait_for_timeout(900)
-            shot = _png(pg, GAME_CLIP)          # game-over settlement screen
+            shot = canvas_png()                 # game-over settlement screen (the canvas)
             score = rec.final_score()           # engine score is exact (board is engine-tracked)
             msg = (f"game {game+1}/{a.games}: {steps} moves, max {best_tile}, "
                    f"score {score}, desync {desyncs}")
