@@ -41,6 +41,7 @@ ARROW = {0: "ArrowUp", 1: "ArrowDown", 2: "ArrowLeft", 3: "ArrowRight"}
 # 4 column / 4 row tile-centre pixels for a 1100x1000 viewport (measured live).
 COLC = [367, 489, 610, 731]
 ROWC = [211, 382, 551, 721]
+_OCR_CACHE = {}   # cell-image -> value; a tile renders identically so OCR once
 
 
 def _mean_rgb(im, x, y, h=28):
@@ -67,14 +68,40 @@ def _classify(im, x, y, scratch):
     bbox = ImageOps.invert(crop).getbbox()
     if bbox:
         crop = crop.crop(bbox)
+    key = (crop.size, crop.tobytes())    # a given tile renders identically -> cache the OCR
+    if key in _OCR_CACHE:
+        return _OCR_CACHE[key]
     crop.resize((crop.width * 3, crop.height * 3)).save(scratch)
     out = subprocess.run(["tesseract", scratch, "-", "--psm", "7",
                           "-c", "tessedit_char_whitelist=0123456789"],
                          capture_output=True, text=True).stdout.strip()
-    return int(out) if out.isdigit() and int(out) in VALUE else -1
+    val = int(out) if out.isdigit() and int(out) in VALUE else -1
+    _OCR_CACHE[key] = val
+    return val
 
 
 NEXT_XY = (549, 60)   # next-tile preview, top-centre (1100x1000 viewport)
+BOARD_CLIP = {"x": 300, "y": 115, "width": 500, "height": 710}   # the 4x4 grid region
+
+
+def wait_stable(pg, tries=7, gap=90):
+    """Block until the board region stops animating (two frames ~identical), so
+    OCR runs on a settled frame instead of a mid-slide/merge frame."""
+    from PIL import Image, ImageChops
+    prev = None
+    for _ in range(tries):
+        im = Image.open(io.BytesIO(pg.screenshot(type="png", clip=BOARD_CLIP))).convert("L").resize((60, 84))
+        if prev is not None and sum(ImageChops.difference(im, prev).getdata()) < 250:
+            return
+        prev = im
+        pg.wait_for_timeout(gap)
+
+
+def board_signature(pg):
+    """A cheap fingerprint of the board region (no OCR) — for detecting whether a
+    move actually changed the board without a full 16-cell OCR read."""
+    from PIL import Image
+    return Image.open(io.BytesIO(pg.screenshot(type="png", clip=BOARD_CLIP))).convert("L").resize((44, 62)).tobytes()
 
 
 def read_board(pg, scratch):
@@ -85,8 +112,16 @@ def read_board(pg, scratch):
     return board, nxt
 
 
-def start_game(pg):
-    """Dismiss the portal loader, collapse the sidebar, click PLAY THREES."""
+MENU_NAME_XY = (549, 430)   # the Unity menu's "Enter your name" field
+PLAY_XY = (550, 500)        # PLAY THREES button on the Unity menu
+RETRY_XY = (262, 50)        # "retry" control on the game-over screen
+
+
+def start_game(pg, name=""):
+    """Dismiss the portal loader, collapse the sidebar, optionally set the
+    leaderboard name, and click PLAY THREES. The name field only exists on the
+    Unity menu (fresh profile); with a saved profile it goes straight to a board,
+    where these menu clicks are harmless no-ops."""
     for _ in range(16):
         pg.wait_for_timeout(4000)
         if pg.evaluate("()=>typeof none_loadding==='function' && document.querySelector('#div_btn') "
@@ -101,8 +136,28 @@ def start_game(pg):
     if tog:
         pg.mouse.click(tog["x"], tog["y"])
         pg.wait_for_timeout(800)
-    pg.mouse.click(550, 500)   # PLAY THREES on the Unity canvas
+    _wait_menu_rendered(pg)              # Unity draws its menu a beat after none_loadding
+    if name:
+        pg.mouse.click(*MENU_NAME_XY)     # focus the name field
+        pg.wait_for_timeout(600)          # let Unity register focus (else the 1st char drops)
+        pg.keyboard.type(name, delay=40)  # the Unity input captures typed chars
+        pg.wait_for_timeout(300)
+    pg.mouse.click(*PLAY_XY)              # PLAY THREES on the Unity canvas
     pg.wait_for_timeout(2500)
+
+
+def _wait_menu_rendered(pg, tries=24, gap=500):
+    """Wait until the Unity canvas stops being the dark loading colour, i.e. the
+    menu (light background) has actually rendered — otherwise clicks/typing land
+    on a black frame and do nothing."""
+    from PIL import Image
+    for _ in range(tries):
+        im = Image.open(io.BytesIO(pg.screenshot(type="png",
+             clip={"x": 470, "y": 380, "width": 160, "height": 120}))).convert("L")
+        data = list(im.getdata())
+        if sum(data) / len(data) > 90:   # dark loading frame ~35; menu bg is light
+            return
+        pg.wait_for_timeout(gap)
 
 
 def play(a):
@@ -122,52 +177,66 @@ def play(a):
             pg = b.new_page(viewport=vp)
             closer = b
         pg.goto("https://threesjs.io/", wait_until="domcontentloaded", timeout=30000)
-        start_game(pg)
+        start_game(pg, a.player_name)
         if a.headed and a.tutorial_pause:
             input("Clear the one-time tutorial in the browser, then press Enter here to hand over...")
-        deck = DeckTracker()
-        empties = 0
 
         def read_stable():
-            for _ in range(3):   # retry past mid-animation frames (unreadable -1)
+            wait_stable(pg)      # let the slide/merge animation settle first
+            for _ in range(3):   # then retry past any residual unreadable (-1) cell
                 bd, nx = read_board(pg, scratch)
                 if all(v >= 0 for row in bd for v in row):
                     return bd, nx
-                pg.wait_for_timeout(250)
+                pg.wait_for_timeout(200)
             return bd, nx
 
-        for step in range(a.moves):
-            board, nxt = read_stable()
-            filled = sum(1 for row in board for v in row if v > 0)
-            if filled == 0:
-                empties += 1
-                if empties > 5:
-                    print("no tiles for 5 steps — tutorial not cleared or game over."); break
-                pg.wait_for_timeout(700); continue
+        def play_one_game():
+            deck = DeckTracker()
             empties = 0
-            vals = [[v if v >= 0 else 0 for v in row] for row in board]  # _classify returns VALUES
-            nv = nxt if nxt in (1, 2, 3) else 0   # base tile known; else bonus/unread -> range
-            best = mc.ask(vals, next_val=nv, deck=deck.remaining())
-            if best < 0:
-                print(f"game over at step {step} (no legal move)."); break
-            # press the best move; if a misread made it a no-op on the real board,
-            # fall back through the other directions until the board actually
-            # changes. Only if NO direction changes it is the game truly over.
-            moved = False
-            for m in [best] + [d for d in (0, 1, 2, 3) if d != best]:
-                pg.keyboard.press(ARROW[m])
-                time.sleep(a.move_delay)
-                after, _ = read_stable()
-                if after != board:
-                    moved = True
-                    break
-            if not moved:
-                print(f"game over at step {step} (no direction changes the board)."); break
-            if nv in (1, 2, 3):
-                deck.note(nv)
-            if step % 10 == 0:
-                mx = max((v for row in board for v in row if v > 0), default=0)
-                print(f"step {step}: tiles={filled} maxtile={mx} next={nv} move={MOVE_NAME[best]}")
+            best_tile = 0
+            board, nxt = read_stable()
+            for step in range(a.moves):
+                filled = sum(1 for row in board for v in row if v > 0)
+                if filled == 0:                      # board not readable: over / not ready
+                    empties += 1
+                    if empties > 6:
+                        return step, best_tile
+                    pg.wait_for_timeout(600); board, nxt = read_stable(); continue
+                empties = 0
+                best_tile = max(best_tile, max((v for row in board for v in row), default=0))
+                vals = [[v if v >= 0 else 0 for v in row] for row in board]  # _classify returns VALUES
+                nv = nxt if nxt in (1, 2, 3) else 0   # base tile known; else bonus/unread -> range
+                best = mc.ask(vals, next_val=nv, deck=deck.remaining())
+                if best < 0:
+                    return step, best_tile
+                # press the best move; if a misread made it a no-op on the real
+                # board, fall back through the other directions until the board
+                # actually changes (cheap pixel check, no OCR). If NO direction
+                # changes it, the game is over.
+                sig0 = board_signature(pg)
+                moved = False
+                for m in [best] + [d for d in (0, 1, 2, 3) if d != best]:
+                    pg.keyboard.press(ARROW[m])
+                    time.sleep(a.move_delay)
+                    wait_stable(pg)
+                    if board_signature(pg) != sig0:
+                        moved = True
+                        break
+                if not moved:
+                    return step, best_tile
+                if nv in (1, 2, 3):
+                    deck.note(nv)
+                if step % 20 == 0:
+                    print(f"  step {step}: tiles={filled} maxtile={best_tile} next={nv} move={MOVE_NAME[best]}")
+                board, nxt = read_stable()           # one OCR read after the move that worked
+            return a.moves, best_tile
+
+        for game in range(a.games):
+            steps, best_tile = play_one_game()
+            print(f"game {game+1}/{a.games}: {steps} moves, max tile {best_tile}.", flush=True)
+            if game + 1 < a.games:
+                pg.mouse.click(*RETRY_XY)     # "retry" on the game-over screen
+                pg.wait_for_timeout(2500)
         closer.close()
 
 
@@ -177,8 +246,10 @@ def main():
     ap.add_argument("--user-data-dir", default="", help="persistent Chrome profile (skips the one-time tutorial after first run)")
     ap.add_argument("--headed", action="store_true", help="visible browser (use for the one-time tutorial)")
     ap.add_argument("--tutorial-pause", action="store_true", help="with --headed, pause so you can clear the tutorial by hand")
-    ap.add_argument("--moves", type=int, default=2000)
-    ap.add_argument("--move-delay", type=float, default=0.35)
+    ap.add_argument("--moves", type=int, default=4000, help="safety cap on moves per game")
+    ap.add_argument("--games", type=int, default=1, help="games to play back-to-back (retry between)")
+    ap.add_argument("--player-name", default="", help="leaderboard name to type on the start menu")
+    ap.add_argument("--move-delay", type=float, default=0.32)
     a = ap.parse_args()
     play(a)
 
