@@ -35,8 +35,10 @@ import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from common import MoveClient, DeckTracker, VALUE, MOVE_NAME  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "rl"))
+from common import MoveClient, DeckTracker, VALUE, INDEX, MOVE_NAME  # noqa: E402
 from recorder import GameRecorder, BestKeeper  # noqa: E402
+from threes_env import apply_move, _lane_cells  # noqa: E402  (engine-in-the-loop board tracking)
 
 ARROW = {0: "ArrowUp", 1: "ArrowDown", 2: "ArrowLeft", 3: "ArrowRight"}
 # 4 column / 4 row tile-centre pixels for a 1100x1000 viewport (measured live).
@@ -197,74 +199,107 @@ def play(a):
         if a.headed and a.tutorial_pause:
             input("Clear the one-time tutorial in the browser, then press Enter here to hand over...")
 
-        def read_stable():
-            wait_stable(pg)      # let the slide/merge animation settle first
-            for _ in range(3):   # then retry past any residual unreadable (-1) cell
-                bd, nx = read_board(pg, scratch)
+        def snap():
+            from PIL import Image
+            return Image.open(io.BytesIO(pg.screenshot(type="png"))).convert("RGB")
+
+        def read_all(im):
+            board = [[_classify(im, COLC[c], ROWC[r], scratch) for c in range(4)] for r in range(4)]
+            return board, _classify(im, NEXT_XY[0], NEXT_XY[1], scratch)
+
+        def read_stable_all():
+            wait_stable(pg)
+            bd, nx = None, -1
+            for _ in range(3):
+                im = snap()
+                bd, nx = read_all(im)
                 if all(v >= 0 for row in bd for v in row):
-                    return bd, nx
+                    return im, bd, nx
                 pg.wait_for_timeout(200)
-            return bd, nx
+            return im, bd, nx
+
+        def to_idx(vboard):
+            return [[INDEX.get(v, 0) if v and v > 0 else 0 for v in row] for row in vboard]
 
         def play_one_game():
+            # ENGINE-IN-THE-LOOP: OCR the initial (all-low-tile, reliable) board
+            # once, then track the true board with the Threes engine — apply each
+            # move deterministically (apply_move) and place the spawn (value = the
+            # previewed next tile; position = the changed lane's edge cell that
+            # became non-empty). High tiles (48/96/...) are NEVER OCR'd, so the
+            # board — hence the per-step score and the replay — stay exact even
+            # when the digit OCR can't read a coloured high tile. A move that
+            # doesn't change the real board (rare desync) triggers a full-OCR
+            # resync.
             rec = GameRecorder(agent="threesjs-web-expectimax", depth_cap=a.depth_cap)
             deck = DeckTracker()
-            empties = 0
-            best_tile = 0
-            board, nxt = read_stable()
+            board, nxt = None, -1
+            for _ in range(8):
+                im, bvals, nxt = read_stable_all()
+                if any(v and v > 0 for row in bvals for v in row):
+                    board = to_idx(bvals); break
+                pg.wait_for_timeout(500)
+            if board is None:
+                rec.finish([[0] * 4 for _ in range(4)]); return 0, 0, rec, 0
+            best_tile, desyncs = 0, 0
             for step in range(a.moves):
-                filled = sum(1 for row in board for v in row if v > 0)
-                if filled == 0:                      # board not readable: over / not ready
-                    empties += 1
-                    if empties > 6:
-                        rec.finish(board); return step, best_tile, rec
-                    pg.wait_for_timeout(600); board, nxt = read_stable(); continue
-                empties = 0
-                best_tile = max(best_tile, max((v for row in board for v in row), default=0))
-                vals = [[v if v >= 0 else 0 for v in row] for row in board]  # _classify returns VALUES
-                nv = nxt if nxt in (1, 2, 3) else 0   # base tile known; else bonus/unread -> range
+                vals = [[VALUE[v] for v in row] for row in board]
+                best_tile = max(best_tile, max(VALUE[v] for row in board for v in row))
+                nv = nxt if nxt in (1, 2, 3) else 0
                 best = mc.ask(vals, next_val=nv, deck=deck.remaining())
-                if best < 0:
-                    rec.finish(vals); return step, best_tile, rec
-                # press the best move; if a misread made it a no-op on the real
-                # board, fall back through the other directions until the board
-                # actually changes (cheap pixel check, no OCR). If NO direction
-                # changes it, the game is over.
-                sig0 = board_signature(pg)
-                moved, played = False, best
-                for m in [best] + [d for d in (0, 1, 2, 3) if d != best]:
-                    pg.keyboard.press(ARROW[m])
-                    time.sleep(a.move_delay)
-                    wait_stable(pg)
-                    if board_signature(pg) != sig0:
-                        moved, played = True, m
-                        break
-                if not moved:
-                    rec.finish(vals); return step, best_tile, rec
-                rec.record(vals, nv, played)          # board BEFORE + the move that actually applied
+                if best < 0:                         # no legal move -> game over
+                    rec.finish(vals); return step, best_tile, rec, desyncs
+                rec.record(vals, nv, best)           # exact board BEFORE the move + the move
                 if nv in (1, 2, 3):
                     deck.note(nv)
+                sig0 = board_signature(pg)
+                pg.keyboard.press(ARROW[best]); time.sleep(a.move_delay)
+                wait_stable(pg)
+                im = snap()
+                if board_signature(pg) == sig0:      # no-op on the real board -> desync, resync
+                    desyncs += 1
+                    if rec.steps:
+                        rec.steps.pop()
+                    bvals, nxt = read_all(im)
+                    if any(v and v > 0 for row in bvals for v in row):
+                        board = to_idx(bvals)
+                    continue
+                nb, changed, _ = apply_move(board, best)     # engine slide/merge (no spawn)
+                for li in range(4):                          # locate + place the spawn
+                    if not changed[li]:
+                        continue
+                    r, c = _lane_cells(best, li)[3]          # this lane's edge (far) cell
+                    cellv = _classify(im, COLC[c], ROWC[r], scratch)
+                    if cellv != 0:                           # the one that became non-empty
+                        sv = nv if nv in (1, 2, 3) else cellv   # bonus -> OCR the spawned value
+                        nb[r][c] = INDEX.get(sv, 0) if sv and sv > 0 else 0
+                        break
+                board = nb
+                nxt = _classify(im, NEXT_XY[0], NEXT_XY[1], scratch)
                 if step % 20 == 0:
-                    print(f"  step {step}: tiles={filled} maxtile={best_tile} next={nv} move={MOVE_NAME[played]}")
-                board, nxt = read_stable()           # one OCR read after the move that worked
-            rec.finish(board)
-            return a.moves, best_tile, rec
+                    print(f"  step {step}: max {best_tile} score {rec.final_score()} "
+                          f"next {nv} move {MOVE_NAME[best]} desync {desyncs}")
+            rec.finish([[VALUE[v] for v in row] for row in board])
+            return a.moves, best_tile, rec, desyncs
 
         keeper = BestKeeper(a.record_dir) if a.record_dir else None
         for game in range(a.games):
-            steps, best_tile, rec = play_one_game()
+            steps, best_tile, rec, desyncs = play_one_game()
             pg.wait_for_timeout(900)                 # let the "Out of moves!" score page render
-            score = read_final_score(pg, scratch) or rec.final_score()  # authoritative game score
-            shot = pg.screenshot(type="png")         # the game-over settlement page
-            msg = f"game {game+1}/{a.games}: {steps} moves, max {best_tile}, score {score}"
+            shown = read_final_score(pg, scratch)    # authoritative on-screen "Your score"
+            engine_score = rec.final_score()         # score from the engine-tracked board
+            score = shown or engine_score
+            shot = pg.screenshot(type="png")
+            msg = (f"game {game+1}/{a.games}: {steps} moves, max {best_tile}, "
+                   f"score {score} (engine {engine_score}, shown {shown}, desync {desyncs})")
             if keeper:
                 rd = rec.replay_dict()
-                rd["final_score"] = score            # trust the on-screen score over the badge-glitched board
+                rd["final_score"] = score
                 saved, sc, best = keeper.consider(rd, shot)
                 msg += f" | best {best}" + (" -> NEW BEST saved" if saved else "")
             print(msg, flush=True)
             if game + 1 < a.games:
-                pg.mouse.click(*RETRY_XY)     # "retry" on the game-over screen
+                pg.mouse.click(*RETRY_XY)            # "retry" on the game-over screen
                 pg.wait_for_timeout(2500)
         closer.close()
 
