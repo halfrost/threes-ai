@@ -55,7 +55,18 @@ go run ../../cmd/moveserver -addr :9010 -deckaware &
 # the agent plays through the one-time tutorial itself; the profile saves it so
 # later runs start straight in free play.
 SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --user-data-dir ~/.threes-profile
+# grind games, submit under a leaderboard name, and keep the best game's replay:
+SSL_CERT_FILE=~/.threes-ca.pem python threesjs_driver.py --user-data-dir ~/.threes-profile \
+    --games 100 --player-name "Github halfrost" --record-dir ../../results/replays/threesjs
 ```
+
+`--record-dir` keeps only the single highest-scoring game (via `../recorder.py`,
+shared with the Android/iOS drivers): `best.json` (a replay in the exact
+`engine/replay.go` schema — plays directly in `web/replay.html`) and `best.png`
+(the game-over settlement screenshot). It's overwritten only when a game beats
+the best score so far; the score compared is the authoritative "Your score: N"
+read off the game-over screen. Replay it with:
+`web/replay.html?replay=<path-to-best.json>` (served over http).
 Verified live (headless): launches the system Chrome, dismisses the portal loader
 (`none_loadding()`), collapses the sidebar, starts the game, **auto-clears the
 first-time tutorial**, then plays free games — reading the board and the next-tile

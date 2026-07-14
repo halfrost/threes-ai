@@ -36,6 +36,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from common import MoveClient, DeckTracker, VALUE, MOVE_NAME  # noqa: E402
+from recorder import GameRecorder, BestKeeper  # noqa: E402
 
 ARROW = {0: "ArrowUp", 1: "ArrowDown", 2: "ArrowLeft", 3: "ArrowRight"}
 # 4 column / 4 row tile-centre pixels for a 1100x1000 viewport (measured live).
@@ -110,6 +111,21 @@ def read_board(pg, scratch):
     board = [[_classify(im, COLC[c], ROWC[r], scratch) for c in range(4)] for r in range(4)]
     nxt = _classify(im, NEXT_XY[0], NEXT_XY[1], scratch)   # 1/2/value, or -1 (bonus "+"/unknown)
     return board, nxt
+
+
+def read_final_score(pg, scratch):
+    """Read the authoritative "Your score: N" number off the game-over screen.
+    The final board itself is unreliable there (score badges overlay the tiles),
+    so this text is what best-keeping should compare on. 0 if not found."""
+    from PIL import Image
+    im = Image.open(io.BytesIO(pg.screenshot(type="png",
+        clip={"x": 440, "y": 68, "width": 250, "height": 36}))).convert("L")
+    im = im.point(lambda v: 0 if v < 130 else 255)
+    im.resize((im.width * 3, im.height * 3)).save(scratch)
+    out = subprocess.run(["tesseract", scratch, "-", "--psm", "7",
+                          "-c", "tessedit_char_whitelist=0123456789"],
+                         capture_output=True, text=True).stdout.strip()
+    return int(out) if out.isdigit() else 0
 
 
 MENU_NAME_XY = (549, 430)   # the Unity menu's "Enter your name" field
@@ -191,6 +207,7 @@ def play(a):
             return bd, nx
 
         def play_one_game():
+            rec = GameRecorder(agent="threesjs-web-expectimax", depth_cap=a.depth_cap)
             deck = DeckTracker()
             empties = 0
             best_tile = 0
@@ -200,7 +217,7 @@ def play(a):
                 if filled == 0:                      # board not readable: over / not ready
                     empties += 1
                     if empties > 6:
-                        return step, best_tile
+                        rec.finish(board); return step, best_tile, rec
                     pg.wait_for_timeout(600); board, nxt = read_stable(); continue
                 empties = 0
                 best_tile = max(best_tile, max((v for row in board for v in row), default=0))
@@ -208,32 +225,44 @@ def play(a):
                 nv = nxt if nxt in (1, 2, 3) else 0   # base tile known; else bonus/unread -> range
                 best = mc.ask(vals, next_val=nv, deck=deck.remaining())
                 if best < 0:
-                    return step, best_tile
+                    rec.finish(vals); return step, best_tile, rec
                 # press the best move; if a misread made it a no-op on the real
                 # board, fall back through the other directions until the board
                 # actually changes (cheap pixel check, no OCR). If NO direction
                 # changes it, the game is over.
                 sig0 = board_signature(pg)
-                moved = False
+                moved, played = False, best
                 for m in [best] + [d for d in (0, 1, 2, 3) if d != best]:
                     pg.keyboard.press(ARROW[m])
                     time.sleep(a.move_delay)
                     wait_stable(pg)
                     if board_signature(pg) != sig0:
-                        moved = True
+                        moved, played = True, m
                         break
                 if not moved:
-                    return step, best_tile
+                    rec.finish(vals); return step, best_tile, rec
+                rec.record(vals, nv, played)          # board BEFORE + the move that actually applied
                 if nv in (1, 2, 3):
                     deck.note(nv)
                 if step % 20 == 0:
-                    print(f"  step {step}: tiles={filled} maxtile={best_tile} next={nv} move={MOVE_NAME[best]}")
+                    print(f"  step {step}: tiles={filled} maxtile={best_tile} next={nv} move={MOVE_NAME[played]}")
                 board, nxt = read_stable()           # one OCR read after the move that worked
-            return a.moves, best_tile
+            rec.finish(board)
+            return a.moves, best_tile, rec
 
+        keeper = BestKeeper(a.record_dir) if a.record_dir else None
         for game in range(a.games):
-            steps, best_tile = play_one_game()
-            print(f"game {game+1}/{a.games}: {steps} moves, max tile {best_tile}.", flush=True)
+            steps, best_tile, rec = play_one_game()
+            pg.wait_for_timeout(900)                 # let the "Out of moves!" score page render
+            score = read_final_score(pg, scratch) or rec.final_score()  # authoritative game score
+            shot = pg.screenshot(type="png")         # the game-over settlement page
+            msg = f"game {game+1}/{a.games}: {steps} moves, max {best_tile}, score {score}"
+            if keeper:
+                rd = rec.replay_dict()
+                rd["final_score"] = score            # trust the on-screen score over the badge-glitched board
+                saved, sc, best = keeper.consider(rd, shot)
+                msg += f" | best {best}" + (" -> NEW BEST saved" if saved else "")
+            print(msg, flush=True)
             if game + 1 < a.games:
                 pg.mouse.click(*RETRY_XY)     # "retry" on the game-over screen
                 pg.wait_for_timeout(2500)
@@ -249,6 +278,8 @@ def main():
     ap.add_argument("--moves", type=int, default=4000, help="safety cap on moves per game")
     ap.add_argument("--games", type=int, default=1, help="games to play back-to-back (retry between)")
     ap.add_argument("--player-name", default="", help="leaderboard name to type on the start menu")
+    ap.add_argument("--record-dir", default="", help="keep the single highest-scoring game's replay+screenshot here (best.json/best.png)")
+    ap.add_argument("--depth-cap", type=int, default=5, help="search depth (recorded in the replay metadata)")
     ap.add_argument("--move-delay", type=float, default=0.32)
     a = ap.parse_args()
     play(a)
