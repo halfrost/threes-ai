@@ -49,24 +49,38 @@ def _mean_rgb(im, x, y, h=28):
 
 def _classify(im, x, y, scratch):
     r, g, b = _mean_rgb(im, x, y)
-    if r > g + 30 and r > b + 30:
+    # A 1/2 tile is a fully saturated red/blue cell (low other channels). A white
+    # tile with a coloured digit (e.g. pink "24", red "96") also skews red/blue in
+    # the mean, so require the tile body itself to be dark in the other channels.
+    if r > g + 30 and r > b + 30 and g < 170:
         return 1                                    # red tile
-    if b > g + 18 and b > r + 40:
+    if b > g + 18 and b > r + 40 and r < 175:
         return 2                                    # blue tile
-    if r > 165 and g > 165 and b > 165 and abs(g - b) < 18:
-        return 0                                    # empty pale-teal cell
-    crop = im.crop((x - 45, y - 45, x + 45, y + 45)).convert("L").point(lambda v: 0 if v < 150 else 255)
-    crop.resize((crop.width * 2, crop.height * 2)).save(scratch)
-    out = subprocess.run(["tesseract", scratch, "-", "--psm", "8",
+    if g > r + 12 and b > r + 12 and g > 165 and abs(g - b) < 22:
+        return 0                                    # empty cell: teal tint (R clearly below G~=B)
+    # white/coloured tile (>=3): threshold at <210 grey to catch dark AND coloured
+    # (e.g. pink "24") anti-aliased digits, autocrop, scale up, OCR one line.
+    from PIL import ImageOps
+    crop = im.crop((x - 52, y - 52, x + 52, y + 52)).convert("L").point(lambda v: 0 if v < 210 else 255)
+    bbox = ImageOps.invert(crop).getbbox()
+    if bbox:
+        crop = crop.crop(bbox)
+    crop.resize((crop.width * 3, crop.height * 3)).save(scratch)
+    out = subprocess.run(["tesseract", scratch, "-", "--psm", "7",
                           "-c", "tessedit_char_whitelist=0123456789"],
                          capture_output=True, text=True).stdout.strip()
     return int(out) if out.isdigit() and int(out) in VALUE else -1
 
 
+NEXT_XY = (549, 60)   # next-tile preview, top-centre (1100x1000 viewport)
+
+
 def read_board(pg, scratch):
     from PIL import Image
     im = Image.open(io.BytesIO(pg.screenshot(type="png"))).convert("RGB")
-    return [[_classify(im, COLC[c], ROWC[r], scratch) for c in range(4)] for r in range(4)]
+    board = [[_classify(im, COLC[c], ROWC[r], scratch) for c in range(4)] for r in range(4)]
+    nxt = _classify(im, NEXT_XY[0], NEXT_XY[1], scratch)   # 1/2/value, or -1 (bonus "+"/unknown)
+    return board, nxt
 
 
 def start_game(pg):
@@ -110,24 +124,48 @@ def play(a):
         if a.headed and a.tutorial_pause:
             input("Clear the one-time tutorial in the browser, then press Enter here to hand over...")
         deck = DeckTracker()
-        stuck = 0
+        empties = 0
+
+        def read_stable():
+            for _ in range(3):   # retry past mid-animation frames (unreadable -1)
+                bd, nx = read_board(pg, scratch)
+                if all(v >= 0 for row in bd for v in row):
+                    return bd, nx
+                pg.wait_for_timeout(250)
+            return bd, nx
+
         for step in range(a.moves):
-            board = read_board(pg, scratch)
-            vals = [[VALUE[v] if v >= 0 else 0 for v in row] for row in board]
+            board, nxt = read_stable()
             filled = sum(1 for row in board for v in row if v > 0)
             if filled == 0:
-                stuck += 1
-                if stuck > 5:
-                    print("no tiles read for 5 steps — tutorial not cleared or game over."); break
+                empties += 1
+                if empties > 5:
+                    print("no tiles for 5 steps — tutorial not cleared or game over."); break
                 pg.wait_for_timeout(700); continue
-            stuck = 0
-            move = mc.ask(vals, next_val=0, deck=deck.remaining())
-            if move < 0:
+            empties = 0
+            vals = [[v if v >= 0 else 0 for v in row] for row in board]  # _classify returns VALUES
+            nv = nxt if nxt in (1, 2, 3) else 0   # base tile known; else bonus/unread -> range
+            best = mc.ask(vals, next_val=nv, deck=deck.remaining())
+            if best < 0:
                 print(f"game over at step {step} (no legal move)."); break
+            # press the best move; if a misread made it a no-op on the real board,
+            # fall back through the other directions until the board actually
+            # changes. Only if NO direction changes it is the game truly over.
+            moved = False
+            for m in [best] + [d for d in (0, 1, 2, 3) if d != best]:
+                pg.keyboard.press(ARROW[m])
+                time.sleep(a.move_delay)
+                after, _ = read_stable()
+                if after != board:
+                    moved = True
+                    break
+            if not moved:
+                print(f"game over at step {step} (no direction changes the board)."); break
+            if nv in (1, 2, 3):
+                deck.note(nv)
             if step % 10 == 0:
-                print(f"step {step}: tiles={filled} move={MOVE_NAME[move]}")
-            pg.keyboard.press(ARROW[move])
-            time.sleep(a.move_delay)
+                mx = max((v for row in board for v in row if v > 0), default=0)
+                print(f"step {step}: tiles={filled} maxtile={mx} next={nv} move={MOVE_NAME[best]}")
         closer.close()
 
 
