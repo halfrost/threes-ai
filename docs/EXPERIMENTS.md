@@ -260,7 +260,9 @@ tallies `23,634` (the WebGL buffer must be preserved to screenshot it non-black,
 and the reveal only arms on a live game over). Replays + these settlement
 screenshots under `results/replays/{threesjs,threesgame}/` (gitignored artifacts).
 
-**Two engineering findings worth a paragraph in the blog/paper:**
+Full blow-by-blow (every board-read method tried, the watchdog's evolution, and
+the four bugs it surfaced) is in [`WEB_SCORING_WARSTORIES.md`](WEB_SCORING_WARSTORIES.md)
+— raw material for the blog. The two headline findings:
 - **Board is exact from localStorage, no vision needed.** `play.threesgame.com`
   (Threes.min.js) persists the live game to `localStorage["com.underscorediscovery/
   Threes/slot.0"]` every move — a haxe-serialized `Grid0..15`, `NextValue`,

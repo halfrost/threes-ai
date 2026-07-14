@@ -281,7 +281,9 @@ def play(a):
                 for key in ("ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"):
                     pg.keyboard.press(key)
                     pg.wait_for_timeout(2200)
-            shot = pg.screenshot(type="png", timeout=8000)
+            # full_page so the shot includes the score, the app-store badges and the
+            # plush below the board — the whole settlement page, not just the viewport.
+            shot = pg.screenshot(type="png", full_page=over, timeout=8000)
             with open(a.gameover_png, "wb") as f:
                 f.write(shot)
         except Exception:
