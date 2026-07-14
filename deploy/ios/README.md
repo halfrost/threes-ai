@@ -26,9 +26,27 @@ a physical iPhone/iPad.
 ## Run
 ```bash
 go run ../../cmd/moveserver -addr :9010 -deckaware &
-python driver.py --dry-run                        # check the brain first
-python driver.py --model 'iPhone_14' --scale 3
+python driver.py --dry-run                                  # brain only, no device
+python driver.py --self-test --record-dir /tmp/it           # FULL flow, no device (engine stands in)
+python driver.py --model 'iPhone_14' --scale 3 \
+    --player-name 'Github halfrost' --record-dir ../../results/replays/ios
 ```
+
+## Deliverables (same standard as the web drivers)
+Via `deploy/mobile_core` (shared with Android), a scoring run:
+- records the **best game** as an `engine/replay.go` replay (`best.json`, plays in
+  `web/replay.html`) and its **game-over screenshot** (`best.png`), keeping only the
+  highest-scoring game (`deploy/recorder.py` BestKeeper);
+- takes the **settlement screenshot** straight from the device (WDA screenshot),
+  i.e. the real game-over screen;
+- `--player-name` — but note Threes submits to **Game Center under the signed-in
+  Apple ID**, so the leaderboard name is the account nickname, not typed in-game;
+  `submit_name` only types into an in-game field if you pass `--name-tap "x,y"`.
+
+**`--self-test` runs this entire pipeline offline** (the Python Threes engine
+stands in for the phone), so moveserver → play → record → best-keep → settlement is
+CI-able with no Mac/device. Verified: an 811-move self-test game recorded a valid
+replay that plays in `web/replay.html`.
 
 ## Alternative: iOS Safari playing threesjs.io
 If you only need a *web* score on iOS, skip the native app: open threesjs.io in

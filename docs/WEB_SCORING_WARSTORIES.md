@@ -187,6 +187,44 @@ Both sites end on a score screen; capturing it had its own traps.
 
 ---
 
+## Part 4 — Mobile (Android app + iOS app)
+
+The native apps reuse the exact same brain and recorder; only capture and input
+change. Notes/gotchas:
+
+- **One core, two transports.** `deploy/mobile_core.py` holds the whole loop
+  (read → moveserver → swipe → record → best-keep → settlement shot). Android's
+  driver is a thin `AdbDevice` (`adb exec-out screencap` to read, `adb shell input
+  swipe` to move); iOS's is a thin `WdaDevice` talking to **WebDriverAgent** over
+  HTTP (`GET /screenshot`, `dragfromtoforduration`). No Appium/Selenium stack —
+  just urllib + the shared exemplar OCR.
+- **Read the whole board via OCR here, not partial-OCR-plus-engine.** The web
+  threesgame path tracks the board with the engine because its canvas is hostile;
+  the apps render clean tiles, so the exemplar OCR (`android/ocr`) reads all 16
+  cells (incl. high tiles) reliably, and reading each step naturally hands the
+  recorder the board *before* the move. Simpler, and no orientation surprises.
+- **iOS units bite you.** WDA screenshots are in **pixels**, but WDA touch is in
+  **points** — divide the OCR geometry by the device `--scale` (3 on modern
+  iPhones, 2 on SE/older) or every swipe lands in the wrong place.
+- **The leaderboard name is the OS account, not an in-game field.** Threes submits
+  scores to **Google Play Games** (Android) / **Game Center** (iOS) under the
+  signed-in account. So "Github halfrost" is the *device account nickname*, not
+  something the driver types; `submit_name` only types into an in-game field if you
+  pass `--name-tap "x,y"`. Easy to assume otherwise and build a name-entry step
+  that never fires.
+- **You can't test the real apps in CI.** No `adb`/emulator in the sandbox, and
+  **App Store iOS builds don't run on the Simulator** (wrong arch) — real iOS needs
+  a physical device + WebDriverAgent. So the deliverable is an **`EngineDevice`**:
+  the Python Threes engine implements the same `Device` interface (`read`/`swipe`/
+  `screenshot_png`), and `--self-test` runs the entire scoring pipeline offline.
+  It caught real wiring bugs and proves the replay/best-keeper/settlement path end
+  to end (an 811-move self-test game played back cleanly in `web/replay.html`)
+  without any hardware.
+- **Swipe geometry is derived from the OCR config** — one `CONFIGS['<model>']`
+  entry (tile origin/pitch) drives both reading and input. If a swipe doesn't
+  register, widen the pitch or raise the duration rather than hand-tuning two sets
+  of coordinates.
+
 ## One-line lessons
 
 - On a `<canvas>` game, look for a **saved-state side channel** (localStorage /

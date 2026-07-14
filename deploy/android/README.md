@@ -26,11 +26,28 @@ agent, over ADB: `screencap` → OCR → ask `moveserver` → `input swipe` → 
 ## Run
 ```bash
 go run ../../cmd/moveserver -addr :9010 -deckaware &
-python driver.py --dry-run                              # check the brain first
-python driver.py --model 'Pixel_7_API_34' --serial emulator-5554
+python driver.py --dry-run                              # brain only, no device
+python driver.py --self-test --record-dir /tmp/at       # FULL flow, no device (engine stands in)
+python driver.py --model 'Pixel_7_API_34' --serial emulator-5554 \
+    --player-name 'Github halfrost' --record-dir ../../results/replays/android
 # multi-game: pass the new-game button location
 python driver.py --model 'Pixel_7_API_34' --games 20 --restart-tap '540,1600'
 ```
+
+## Deliverables (same standard as the web drivers)
+Via `deploy/mobile_core` (shared with iOS), a scoring run:
+- records the **best game** as an `engine/replay.go` replay (`best.json`, plays in
+  `web/replay.html`) and its **game-over screenshot** (`best.png`), keeping only the
+  highest-scoring game (`deploy/recorder.py` BestKeeper);
+- takes the **settlement screenshot** straight from the device (`adb screencap`);
+- `--player-name` — but Threes submits to the **Google Play Games account**, so the
+  leaderboard name is the device account, not typed in-game; `submit_name` only
+  types into an in-game field if you pass `--name-tap "x,y"`.
+
+**`--self-test` runs this whole pipeline offline** (the Python Threes engine stands
+in for the phone), so it is CI-able with no emulator/APK. Verified: a self-test game
+recorded a valid replay that plays in `web/replay.html`, with a rendered settlement
+card. Real-device scoring needs `adb` + an emulator/phone with Threes installed.
 
 ## Notes
 - Swipes use `adb shell input swipe` from the board centre; if a swipe doesn't
