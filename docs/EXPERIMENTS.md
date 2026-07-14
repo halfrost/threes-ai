@@ -59,7 +59,7 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 ---
 
 ## 0. Headline results (canonical: cloud box, corrected engine, N=1000)
-> The full 2×6 grid — deck-blind AND deck-aware at every depth 1-6, N=1000, paired
+> The full 2×9 grid — deck-blind AND deck-aware at every depth 1-9, N=1000, paired
 > seeds 1..1000, bitboard + bonus-range engine (`scripts/rerun_cloud.sh`). These
 > supersede all earlier numbers (laptop B1/B2/A1/A2 and the mixed-N first pass),
 > which used an over-informed bonus preview and/or too few games.
@@ -82,9 +82,19 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 | 4 | 179,460 / 177,042 | 51.9% / 51.9% | 5.9% / 4.6% | 0 / 0 | 360 |
 | 5 | 234,732 / 251,707 | 68.0% / 69.8% | 11.6% / **15.2%** | 0.1% / 0 | 1380 |
 | 6 | 264,119 / **301,228** | 72.2% / 73.9% | 16.4% / **21.2%** | 0 / **1.1%** | 2600 |
-- Monotonic and still climbing at depth 6 (deck-aware 6144 15.2%→21.2%). ms/move
-  growth *slows* at high depth (d5→d6 only ~1.9×) because the `CprobMin=1e-4`
-  cutoff increasingly binds — depth 7+ gives diminishing returns for rising cost.
+| 7 | 290,900 / 313,775 | 72.9% / 76.3% | 20.7% / 23.0% | 0.5% / 1.1% | 3195 |
+| 8 | 295,419 / **321,016** | 73.2% / 75.7% | 21.9% / **25.2%** | 0.6% / 1.1% | 3313 |
+| 9 | 293,524 / 319,441 | 73.2% / 75.7% | 21.9% / 25.0% | 0.4% / 1.0% | 3316 |
+- **Depth returns saturate at d7–d8** (cloud box, N=1000, seed-paired, extends the
+  grid to 9). Deck-aware mean: d6 301k → d7 314k → **d8 321k (peak)** → d9 319k;
+  the d8→d9 change is negative, i.e. noise. 6144 rate peaks at d8 (25.2%).
+- **d8 ≈ d9 are the same policy**: identical median (250,587), ms/move (3313 vs
+  3316) and moves/game (1207 vs 1206). The adaptive depth `DeptMax≈emptyCount−2`
+  (plus the `CprobMin=1e-4` cutoff) caps the *effective* depth below 8 in almost
+  every node, so raising the cap from 8→9 changes almost nothing. **d8 is the
+  practical ceiling for this search; deeper is wasted compute.** For the paper: the
+  strength-vs-depth curve is concave and flattens by d7, motivating the learned
+  leaf (T3) as the way to buy strength that raw depth no longer can.
 
 ### H2 — ★ Key finding: the deck-aware advantage GROWS with depth
 | depth | Δ mean (aware − blind) | Δ 6144 |
@@ -95,10 +105,15 @@ comparison point (prior baseline, or the 2016 MS-TD SOTA).
 | 4 | −1.3% (noise) | −1.3 |
 | 5 | **+7.2%** | **+3.6** |
 | 6 | **+14.0%** | **+4.8** |
-- Knowing the deck is nearly worthless at shallow depth but worth **+14% mean and
-  +4.8 pts on the 6144 rate at depth 6** — more lookahead is needed to exploit the
-  known upcoming tiles. This depth×deck interaction is the paper's core result;
-  the earlier single-depth ablation (old A1, +25%) missed it entirely.
+| 7 | +7.9% | +2.3 |
+| 8 | +8.7% | +3.3 |
+| 9 | +8.8% | +3.1 |
+- Knowing the deck is nearly worthless at shallow depth but worth **+8–14% mean and
+  +3–5 pts on the 6144 rate at depth 6–9** — more lookahead is needed to exploit the
+  known upcoming tiles. The advantage holds firm (≈+8–9%) once depth saturates; it
+  doesn't wash out with more search. This depth×deck interaction is the paper's core
+  result; the earlier single-depth ablation (old A1, +25%) missed it entirely.
+  (The d6 +14% is the widest point; d7–9 settle at ≈+9% as both modes plateau.)
 
 ---
 
