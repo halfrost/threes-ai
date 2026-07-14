@@ -44,6 +44,15 @@ _KEY = _SKIP["localStorage_key"]
 _ORIGIN = "https://play.threesgame.com"
 _DBG = bool(os.environ.get("TG_DEBUG"))
 
+# Force the WebGL context to keep its drawing buffer so screenshots aren't black.
+# Must run before the game creates its context, so it goes in an add_init_script.
+_PRESERVE_DRAWING_BUFFER = (
+    "(function(){var o=HTMLCanvasElement.prototype.getContext;"
+    "HTMLCanvasElement.prototype.getContext=function(t,a){"
+    "if(t==='webgl'||t==='webgl2'||t==='experimental-webgl'){"
+    "a=Object.assign({},a,{preserveDrawingBuffer:true});}"
+    "return o.call(this,t,a);};})();")
+
 
 def _decode_slot(inner):
     """Decode the haxe serialization used by Threes.min.js into a field dict.
@@ -160,6 +169,7 @@ def play(a):
             f"try{{if(!localStorage.getItem({json.dumps(_KEY)}))"
             f"localStorage.setItem({json.dumps(_KEY)},{json.dumps(_SKIP['localStorage_value'])});}}"
             f"catch(e){{}}")
+        ctx.add_init_script(_PRESERVE_DRAWING_BUFFER)   # so the settlement screenshot isn't black
         pg = ctx.pages[0] if ctx.pages else ctx.new_page()
         pg.set_default_timeout(8000)
         pg.goto(_ORIGIN + "/", wait_until="domcontentloaded", timeout=30000)
@@ -262,7 +272,16 @@ def play(a):
         # Terminal: record the final board, grab the settlement screenshot, exit.
         emit({"terminal": st["board"]})
         try:
-            shot = pg.screenshot(type="png", timeout=8000)   # ONE grab, game already over
+            if over:
+                # Live game over shows "Out of moves!" -> a MOVE flips every tile to
+                # its point value and tallies the total. It only arms on a LIVE game
+                # over (a reloaded one won't reveal), so do it now. Some directions
+                # are no-ops for the flip; press several so at least one lands.
+                pg.wait_for_timeout(1500)
+                for key in ("ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"):
+                    pg.keyboard.press(key)
+                    pg.wait_for_timeout(2200)
+            shot = pg.screenshot(type="png", timeout=8000)
             with open(a.gameover_png, "wb") as f:
                 f.write(shot)
         except Exception:
