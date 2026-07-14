@@ -1,0 +1,5 @@
+{
+  "note": "Inject this localStorage entry via Playwright add_init_script BEFORE loading play.threesgame.com to skip the multi-stage tutorial permanently (no profile / no manual clearing). It is a saved-slot state with CompletedTutorial=true; the game then shows the normal 'PLAY THREES' menu. Start a game by pressing Spacebar.",
+  "localStorage_key": "com.underscorediscovery/Threes/slot.0",
+  "localStorage_value": "YnkyMjpVMk52Y21WRGJHVmhja1JoZEdVJTNEeTI0Ok1UYzROREF4TURJeE5qY3dNZyUzRCUzRHkzMDpVMk52Y21WRGIzVnVkR1JsWm1GMWJIUjNaV0klM0R5ODpNQSUzRCUzRHkyMDpVbVZqYjNKa1VtRnVhdyUzRCUzRHk4Ok13JTNEJTNEeTI0OlEyVnNaV0p5WVhSbFVtRnVhdyUzRCUzRFI1eTI2OlEyOXRjR3hsZEdWa1ZIVjBiM0pwWVd3JTNEeTEyOmRISjFaUSUzRCUzRHkyMDpTVzVRY205bmNtVnpjdyUzRCUzRFI4eTE2OlJXNWtSMkZ0WlZOMFlYUmxSM3kxMjpUbVY0ZEZaaGJIVmx5ODpNUSUzRCUzRGg="
+}
