@@ -209,6 +209,35 @@ _Planned: depth 6 (on cloud); heuristic vs N-tuple leaf; beam on/off; TT on/off.
 
 ## 5. Training runs (N-tuple TD self-play)
 
+### ★ Learning-curve comparison (T1 vs T2 vs T4) — the phase transition
+> Consolidated view of the three greedy-eval curves (mean of 1000 held-out games,
+> sampled every 100–500k training games). Interactive figure (hover for any point,
+> both themes): **https://claude.ai/code/artifact/8ef3aedc-1ae2-4e62-9ecb-5567fe477049**
+> — regenerate from the logs with `scripts/learning_curve.py`.
+
+| run | tuples | α schedule | TC | games | peak mean | final mean | phase jump? |
+|---|---|---|---|---|---:|---:|---|
+| **T1** | small 4×4 (~1 MB) | const 0.1 | no | 5M | 10,709 | 9,868 | no — capacity-capped ≈10k |
+| **T2** | big 4×6 (~270 MB) | const 0.1 | no | 10M | **21,371** | 20,968 | **yes, near 4M games** |
+| **T4** | big2 8×6 (~540 MB) | 0.1→0.01 anneal | yes | 15M | 9,809 | 9,608 | no — smooth crawl, never jumps |
+
+- **The single most important shape in the whole training story is T2's phase
+  transition.** All three curves rise fast to ~10k in the first ~200k games; then
+  they diverge. T1 flatlines at its capacity ceiling. T2 sits with T1 at ~10k until
+  ~4M games and then **jumps to ~21k over 4M–5.6M** (bimodal during the crossover)
+  — the point where the value table starts *reliably building a 768 tile*
+  (768 = 19,683 pts ≈ the new median). T4, despite 2× capacity + TC + anneal + 50%
+  more games, **never leaves the low plateau** and ends *below* even the small-tuple
+  T1 baseline.
+- **Headline for the blog/paper:** more capacity and more machinery did not help — it
+  hurt. Capacity alone (T1→T2) unlocked the transition; adding capacity *together
+  with* TC + α-anneal (T4) suppressed it. Whether the culprit is the extra levers or
+  simple under-training of 2× weights at 15M is exactly what the T5/T6 ablations
+  resolve (see T4 and T6 below).
+- Note the axes caveat: these are **depth-0 greedy** asymptotes (no search), the
+  clean signal for *representation strength*. All three are an order of magnitude
+  below the depth-6 expectimax; the learned value's real use is as a search leaf (T3).
+
 ### T1 — Small tuples (4× 4-cell), 5M games, α=0.1 — capacity-limited plateau
 - `cmd/train -games 5000000 -alpha 0.1` (default small tuples). Greedy eval on
   fixed held-out seeds 1..1000.
@@ -288,11 +317,15 @@ both deck-aware. Head-to-head (`results/ntsearch_summaries.jsonl`):
   to the hand heuristic as an expectimax leaf (T3); a weaker greedy value won't beat
   it, so skip the T3-style leaf eval for T4.
 
-### T6 — big2 + constant α (complete the 2×2) — ready to run
+### T6 — big2 + constant α (complete the 2×2) — ★ RUNNING (machine 01)
 `scripts/train_big2.sh` → `models/ntuple_big2.gob`, 15M games, big2, constant
 α=0.1 (T2's recipe with big2's capacity). Fourth cell of the design
 (big/big2 × const-α/TC+anneal); T4 vs T6 isolates whether TC+anneal hurt, T2 vs T6
-isolates whether big2 is just under-trained. Run on the now-free machine 01.
+isolates whether big2 is just under-trained. **Launched on machine 01** (freed after
+T4). Expected reads: if T6 clears ~21k → TC+anneal was the culprit in T4; if T6 also
+stalls near ~10k → big2's 2× weights are just badly under-trained at 15M. Fetch the
+`.gob` + `train_big2.log` from `cloud-results` when done (no-overwrite), then curve
+it vs T2/T4 with `scripts/learning_curve.py`.
 
 _Planned later: DQN / PPO / AlphaZero-style baselines (Phase 3, needs a GPU box)._
 
