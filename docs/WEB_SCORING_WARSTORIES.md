@@ -225,6 +225,42 @@ change. Notes/gotchas:
   register, widen the pitch or raise the duration rather than hand-tuning two sets
   of coordinates.
 
+## Part 5 — The native Mac app (iOS Threes on Apple Silicon)
+
+The official **paid Threes** runs natively on Apple-Silicon Macs ("iPhone/iPad
+apps on Mac", `~/Library/Containers/vo.threes.exclaim`, the binary lives in a
+`.../Wrapper/Threes.app`). `deploy/mac/driver.py` drives it. A pile of surprises:
+
+- **Capture: screenshot the window by ID.** `screencapture -l<windowID>` (window
+  id from CoreGraphics `CGWindowListCopyWindowInfo`, permission-free) grabs the
+  window's backing store even when it's partly off-screen. System Events' `size of
+  window 1` returns a bogus height for these windows, so don't use it.
+- **Synthetic KEYBOARD works; synthetic MOUSE does not.** Arrow keys sent via
+  `osascript ... key code` move tiles. But *nothing* clicks the on-screen buttons:
+  `cliclick`, raw Quartz `CGEventPost`, `CGEventPostToPid`, and AX `AXPress` all
+  fail — the buttons aren't even in the accessibility tree (drawn on a Metal
+  surface). So the game-over **"retry" button is untappable by automation.**
+  (Verified the cursor was dead-on the button and the click still did nothing.)
+- **…so restart the game with the keyboard, not the mouse.** Kill the process →
+  `open -b` relaunches to the **start menu** → the **Return** key fires
+  "PLAY THREES" (Space does *not*; and an Escape beforehand breaks it). That's a
+  no-mouse full-auto loop: kill → relaunch → Return → play → game over → repeat.
+- **Off-screen windows silently eat clicks anyway.** Three displays with negative
+  origins meant the window sat mostly below the main display; even correct global
+  coords landed off-screen. `AXUIElement set position` (this one AX call *does*
+  work) moves it back on-screen.
+- **The board can't be read exactly — the ceiling.** Colour reads {empty, 1=blue,
+  2=red, white≥3} perfectly, but a **white tile's value (3 vs 6 vs 12…) is
+  unknowable from colour**, and tesseract misreads the handwritten font (a "3" as
+  "2"). Tracking high tiles with the engine from a fresh start drifts (≈11 bad
+  cells over 130 moves), which corrupts the recorded score and makes game-over fire
+  early. The exact board *is* in the app's plist (`Grid0..15`, like the web
+  slot.0) — but it's deliberately **obfuscated** (each cell a `(value,id)` string
+  like `"GU7"`, `"<IEJ:"`), and cfprefsd caches it, so per-move exact reads are out
+  without reversing the format. Net: the full-auto plumbing (restart, keyboard
+  play, replay recording, settlement screenshot) all works; a *strong, accurate*
+  Mac score is gated on exact board reading, which the obfuscated save blocks.
+
 ## One-line lessons
 
 - On a `<canvas>` game, look for a **saved-state side channel** (localStorage /
