@@ -178,10 +178,11 @@ class MacThreesDevice:
     def __init__(self, owner="Threes", region=None, move_delay=0.45, dbg=False):
         self.owner, self.region, self.move_delay, self.dbg = owner, region, move_delay, dbg
         self.desyncs = 0
+        self.noops = 0          # consecutive non-registering moves (desync/wedge guard)
         self.over = False
         self.tmpl = TileTemplates()
         self._activate()
-        npim = self._capture_np()
+        npim, _ = self._stable_np()
         # Seed the tracked board via colour + glyph templates (white cells are 3 at a
         # fresh start; higher tiles get learned as they are first created).
         self.board, _ = self._exact_board(npim)
@@ -211,6 +212,23 @@ class MacThreesDevice:
         from PIL import Image
         return np.asarray(Image.open(io.BytesIO(self._capture_png_bytes())).convert("RGB")).astype(int)
 
+    def _stable_np(self, tries=12, gap=0.07):
+        """Capture until the colour grid is identical on two consecutive frames —
+        i.e. the slide/merge animation has SETTLED. This is what keeps late-game
+        reads honest: a full board triggers long merge cascades whose mid-animation
+        frames otherwise look like phantom tiles (the bug that cascaded a clean
+        180-move game into garbage). Returns (npim, shape) of the settled frame."""
+        img = self._capture_np()
+        prev = read_shape(img)
+        for _ in range(tries):
+            time.sleep(gap)
+            img2 = self._capture_np()
+            cur = read_shape(img2)
+            if cur == prev and -1 not in (v for row in cur for v in row):
+                return img2, cur
+            img, prev = img2, cur
+        return img, prev
+
     def screenshot_png(self):
         return self._capture_png_bytes()
 
@@ -227,6 +245,43 @@ class MacThreesDevice:
         subprocess.run(["osascript", "-e",
                         f'tell application "System Events" to set frontmost of process "{self.owner}" to true'],
                        capture_output=True)
+
+    def _screen_xy(self, cap_x, cap_y):
+        """Capture-pixel (x,y) -> absolute screen point, using the live window origin."""
+        _, wx, wy, _, _ = self._win()
+        return wx + cap_x / SCALE, wy + cap_y / SCALE
+
+    def _mouse(self, kind, x, y):
+        import Quartz
+        ev = Quartz.CGEventCreateMouseEvent(None, kind, (x, y), Quartz.kCGMouseButtonLeft)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _drag_swipe(self, move):
+        """Play a move as a real mouse SWIPE (a CGEvent drag with intermediate
+        MouseDragged points). This is what actually drives Threes-on-Mac: the app
+        ignores synthetic ARROW KEYS unless the window holds genuine keyboard
+        first-responder (which a synthetic app-launch/menu-click never grants), but it
+        honours a synthetic mouse drag regardless of focus. 0=UP 1=DOWN 2=LEFT 3=RIGHT."""
+        import Quartz
+        cx, cy = self._screen_xy(X0 + 1.5 * DX, Y0 + 1.5 * DY)     # board centre
+        d = 150
+        vx, vy = {0: (0, -d), 1: (0, d), 2: (-d, 0), 3: (d, 0)}[move]
+        self._mouse(Quartz.kCGEventMouseMoved, cx, cy); time.sleep(0.03)
+        self._mouse(Quartz.kCGEventLeftMouseDown, cx, cy); time.sleep(0.03)
+        steps = 14
+        for i in range(1, steps + 1):
+            self._mouse(Quartz.kCGEventLeftMouseDragged, cx + vx * i / steps, cy + vy * i / steps)
+            time.sleep(0.012)
+        self._mouse(Quartz.kCGEventLeftMouseUp, cx + vx, cy + vy); time.sleep(0.03)
+
+    def _click(self, cap_x, cap_y):
+        """A real synthetic left click at a capture-pixel location (menu / retry
+        buttons DO honour synthetic clicks, unlike arrow keys)."""
+        import Quartz
+        x, y = self._screen_xy(cap_x, cap_y)
+        self._mouse(Quartz.kCGEventMouseMoved, x, y); time.sleep(0.05)
+        self._mouse(Quartz.kCGEventLeftMouseDown, x, y); time.sleep(0.05)
+        self._mouse(Quartz.kCGEventLeftMouseUp, x, y); time.sleep(0.05)
 
     def _exact_board(self, npim, engine_board=None):
         """Read the EXACT board (indices) from the screen: colour for empty/1/2, and
@@ -258,86 +313,127 @@ class MacThreesDevice:
 
     def swipe(self, move):
         # Threes-on-Mac takes arrow keys (a mouse-drag swipe does NOT register).
-        # Keys go to the frontmost app, so keep the game focused. A legal move
-        # always changes the visible board (it slides a tile AND spawns one), so we
-        # confirm the key landed by the shape changing — and re-send if it didn't
-        # (a dropped keystroke is the main failure mode, and it silently desyncs
-        # the engine-tracked board). The generous delay makes "unchanged" mean
-        # "dropped", not "captured mid-animation" (which would double-move).
-        pre = read_shape(self._capture_np())
+        # Keys go to the frontmost app, so keep the game focused. A legal move always
+        # changes the visible board (it slides a tile AND spawns one), so we confirm
+        # the key landed by the colour grid changing — and re-send if it didn't (a
+        # dropped keystroke is the main failure mode). The generous delay makes
+        # "unchanged" mean "dropped", not "captured mid-animation" (a double-move).
+        #
+        # BOARD TRACKING — engine-trusted, spawn-anchored (the key to accuracy):
+        # `apply_move` gives the EXACT slide/merge of the existing tiles
+        # (deterministic — a merge's value is fixed), so we never glyph-read high
+        # tiles (that was the old drift source: 12/24/48/96 confuse the matcher). The
+        # only new information on screen after a move is the single SPAWNED tile;
+        # its value is exactly the `next` we previewed BEFORE the move (always a
+        # 1/2/3, colour-coded — or a bonus, handled below). So: engine board + read
+        # the screen only to place that one spawn and confirm the move.
+        _, pre = self._stable_np()           # settled colour grid BEFORE the move
+        nv = self.next                       # previewed next = the tile that spawns now
         npim, shape, registered = None, pre, False
         for _ in range(4):
-            self._activate()
-            time.sleep(0.12)
-            subprocess.run(["osascript", "-e",
-                            f'tell application "System Events" to key code {KEY_CODE[move]}'], check=True)
+            self._drag_swipe(move)           # mouse SWIPE (arrow keys need genuine focus)
             time.sleep(self.move_delay)
-            npim = self._capture_np()
-            shape = read_shape(npim)
+            npim, shape = self._stable_np()  # wait for the slide/merge to SETTLE
             if shape != pre:
                 registered = True
                 break
         if not registered:
-            # a legal move always changes the board; 4 tries with no change means the
-            # real game is over (its game-over screen ignores keys). Stop cleanly.
-            self.over = True
+            # The swipe didn't change the screen. Re-read the true board off the
+            # settled frame, then decide game-over by the REAL rule: in Threes a game
+            # is over ONLY when the board is completely FULL (16 tiles) with no
+            # mergeable pair. With ANY empty cell a slide is always legal, so a no-op
+            # there is a read/move glitch to recover from (re-sync + let the next loop
+            # re-ask), NOT a dead game — the endgame false-over that used to stop us a
+            # few moves short of the real settlement screen. noops>=30 is a wedge
+            # backstop only (mouse swipes are reliable, so this rarely bites).
+            fresh, _ = self._stable_np()
+            self.board, _ = self._exact_board(fresh)
+            self.next = read_next(fresh) or self.next
+            filled = sum(1 for r in range(4) for c in range(4) if self.board[r][c] > 0)
+            self.noops += 1
+            if (filled == 16 and not self._legal()) or self.noops >= 30:
+                self.over = True
             return
-        # Update the tracked board = engine slide/merge, then RE-SYNC every cell's
-        # shape from the screen so nothing can drift: empties, blue(1), red(2) and
-        # the spawned tile all come from the screen (exact); only a white tile's
-        # VALUE (3 vs 6 vs 12...) comes from the engine, since colour can't tell
-        # them apart. Starting from a fresh game (all 1/2/3) the engine's merges are
-        # correct, and re-syncing the shape each move keeps them correct.
-        # Engine slide/merge gives the value of any NEW merged tile (deterministic);
-        # then read the exact board off the screen (colour + glyph template match)
-        # so every cell — including high white tiles — is screen-anchored each move.
+        # Engine slide/merge of the existing tiles (exact), then place the one spawn.
         nb, changed, moved = apply_move(self.board, move)
         if not moved:
             nb = [row[:] for row in self.board]
-        exact, shape = self._exact_board(npim, nb)
-        # desync = the engine had a tile whose value disagrees with the screen read
-        mis = sum(1 for r in range(4) for c in range(4)
-                  if nb[r][c] >= 1 and exact[r][c] >= 1 and nb[r][c] != exact[r][c])
-        self.board = exact
-        self.next = read_next(npim) or self.next
-        self.desyncs += 1 if mis else 0
+        # The spawn = the cell that is EMPTY in the engine's post-slide board but
+        # filled on screen. (Merges free cells; the set difference isolates the spawn.)
+        spawns = [(r, c) for r in range(4) for c in range(4)
+                  if nb[r][c] == 0 and shape[r][c] in (1, 2, 3)]
+        if len(spawns) == 1:
+            r, c = spawns[0]
+            col = shape[r][c]
+            if col in (1, 2):
+                nb[r][c] = col               # low spawn: the colour IS the value
+            elif nv >= 3:
+                nb[r][c] = nv                # white/bonus spawn: use the preview value
+            else:
+                g = _glyph(npim, int(X0 + c * DX), int(Y0 + r * DY))
+                idx, d = self.tmpl.match(g)  # bonus spawn w/ no readable preview: read it
+                nb[r][c] = idx if (idx is not None and d < TileTemplates.THRESH) else 3
+        # Occupancy check: do the engine's filled cells match the screen's? (colour-
+        # based, robust). If the spawn count was wrong OR occupancy drifted, the
+        # engine board diverged — RESYNC from the settled screen via a full glyph
+        # read so a single miss can't cascade (the failure mode that ate game 3).
+        occ = sum(1 for r in range(4) for c in range(4)
+                  if (nb[r][c] > 0) != (shape[r][c] in (1, 2, 3)))
+        if len(spawns) != 1 or occ:
+            nb, _ = self._exact_board(npim, nb)
+            occ = sum(1 for r in range(4) for c in range(4)
+                      if (nb[r][c] > 0) != (shape[r][c] in (1, 2, 3)))
+        self.board = nb
+        self.next = read_next(npim) or nv
+        self.noops = 0                       # a move landed -> clear the wedge counter
+        self.desyncs += 1 if occ else 0
         if self.dbg:
-            print(f"    [dbg] move={move} next={self.next} desync={mis} "
-                  f"templates={sorted(VALUE[i] for i in self.tmpl.t)}",
-                  file=sys.stderr, flush=True)
+            mx = max(max(row) for row in nb)
+            print(f"    [dbg] move={move} nv={nv} spawn={len(spawns)} resync={'Y' if (len(spawns)!=1 or occ) else 'n'} "
+                  f"occ_mis={occ} maxtile={VALUE[mx] if mx in VALUE else mx}", file=sys.stderr, flush=True)
 
     def submit_name(self, name):
         print(f"submit_name: Threes submits to Game Center under the signed-in Apple ID "
               f"(set the nickname to '{name}')", flush=True)
 
     def _seed(self):
-        npim = self._capture_np()
+        npim, _ = self._stable_np()                 # settled frame, so the seed is exact
         self.board, _ = self._exact_board(npim)     # colour + glyph templates; learns fresh 3s
         self.next = read_next(npim) or 1
 
     def restart(self):
-        """Start a fresh game with NO mouse. The app ignores synthetic mouse
-        clicks (so the game-over "retry" button is untappable), but it DOES take
-        synthetic keys — and relaunching shows the start menu whose "PLAY THREES"
-        fires on the RETURN key. So: kill -> relaunch -> Return -> a brand-new game."""
-        subprocess.run(["pkill", "-9", "-f", "Wrapper/Threes.app/Threes"], check=False)
-        time.sleep(2.5)
-        subprocess.run(["open", "-b", "vo.threes.exclaim"], check=False)
-        time.sleep(9)                       # launch + menu render (needs a beat)
-        for _ in range(6):                  # Return -> PLAY THREES (retry until it takes)
-            self._activate()
-            time.sleep(0.6)
-            subprocess.run(["osascript", "-e",
-                            'tell application "System Events" to key code 36'], check=False)
-            time.sleep(2.0)
-            shape = read_shape(self._capture_np())
+        """Start a fresh game with the MOUSE. The app honours synthetic CLICKS on the
+        menu / game-over buttons but ignores synthetic ARROW KEYS unless the window
+        holds genuine keyboard focus (a synthetic launch never grants it) — so we both
+        play AND restart via mouse. Click 'retry' on a game-over screen (starts a new
+        game directly, no relaunch) or 'PLAY THREES' on the start menu, and verify a
+        fresh low-tile board appeared. Hard reset (kill+relaunch) only as a fallback."""
+        RETRY_XY = (685, 200)              # game-over 'retry' button (capture px)
+        PLAY_XY = (1000, 1340)             # start-menu 'PLAY THREES' button (capture px)
+
+        def is_fresh():
+            shape = self._stable_np()[1]
             filled = sum(1 for r in range(4) for c in range(4) if shape[r][c] > 0)
             empties = sum(1 for r in range(4) for c in range(4) if shape[r][c] == 0)
             lows = sum(1 for r in range(4) for c in range(4) if shape[r][c] in (1, 2))
-            # A real fresh game has blue(1)/red(2) tiles; the start MENU's decorative
-            # board is all white (3..768), so require some low tiles to tell them apart.
-            if 6 <= filled <= 11 and empties >= 3 and lows >= 2:
+            # a live game has blue(1)/red(2) tiles; the menu/game-over polaroid boards
+            # are all-white decoration, so require some low tiles to tell them apart.
+            return 6 <= filled <= 11 and empties >= 3 and lows >= 2
+
+        for attempt in range(6):
+            if is_fresh():
                 break
+            self._click(*RETRY_XY); time.sleep(2.0)   # game-over -> retry
+            if is_fresh():
+                break
+            self._click(*PLAY_XY); time.sleep(2.0)    # start menu -> PLAY THREES
+            if is_fresh():
+                break
+            if attempt == 3:                            # last resort: hard reset
+                subprocess.run(["pkill", "-9", "-f", "Wrapper/Threes.app/Threes"], check=False)
+                time.sleep(2.5)
+                subprocess.run(["open", "-b", "vo.threes.exclaim"], check=False)
+                time.sleep(9)
         self._seed()
 
 
