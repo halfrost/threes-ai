@@ -1,0 +1,827 @@
+nohup: ignoring input
+Building bench (model=models/ntuple_big.gob workers=240 depths='3 4 5' N=1000)...
+
+=== bench -agent ntuple-search -model models/ntuple_big.gob -depthcap 3 -label ntsearch-big-d3 -out results/ntsearch_big_d3.jsonl ===
+Agent ntuple-search using model models/ntuple_big.gob (4 tuples)
+Running 1000 games, 240 workers, base seed 1...
+  10/1000 done (231s elapsed)
+  20/1000 done (295s elapsed)
+  30/1000 done (343s elapsed)
+  40/1000 done (363s elapsed)
+  50/1000 done (390s elapsed)
+  60/1000 done (409s elapsed)
+  70/1000 done (429s elapsed)
+  80/1000 done (445s elapsed)
+  90/1000 done (455s elapsed)
+  100/1000 done (472s elapsed)
+  110/1000 done (488s elapsed)
+  120/1000 done (505s elapsed)
+  130/1000 done (525s elapsed)
+  140/1000 done (546s elapsed)
+  150/1000 done (568s elapsed)
+  160/1000 done (589s elapsed)
+  170/1000 done (605s elapsed)
+  180/1000 done (619s elapsed)
+  190/1000 done (649s elapsed)
+  200/1000 done (671s elapsed)
+  210/1000 done (697s elapsed)
+  220/1000 done (709s elapsed)
+  230/1000 done (740s elapsed)
+  240/1000 done (754s elapsed)
+  250/1000 done (780s elapsed)
+  260/1000 done (814s elapsed)
+  270/1000 done (831s elapsed)
+  280/1000 done (858s elapsed)
+  290/1000 done (881s elapsed)
+  300/1000 done (902s elapsed)
+  310/1000 done (932s elapsed)
+  320/1000 done (945s elapsed)
+  330/1000 done (968s elapsed)
+  340/1000 done (992s elapsed)
+  350/1000 done (1015s elapsed)
+  360/1000 done (1038s elapsed)
+  370/1000 done (1063s elapsed)
+  380/1000 done (1088s elapsed)
+  390/1000 done (1116s elapsed)
+  400/1000 done (1146s elapsed)
+  410/1000 done (1161s elapsed)
+  420/1000 done (1180s elapsed)
+  430/1000 done (1199s elapsed)
+  440/1000 done (1218s elapsed)
+  450/1000 done (1246s elapsed)
+  460/1000 done (1278s elapsed)
+  470/1000 done (1288s elapsed)
+  480/1000 done (1301s elapsed)
+  490/1000 done (1325s elapsed)
+  500/1000 done (1348s elapsed)
+  510/1000 done (1359s elapsed)
+  520/1000 done (1381s elapsed)
+  530/1000 done (1402s elapsed)
+  540/1000 done (1429s elapsed)
+  550/1000 done (1463s elapsed)
+  560/1000 done (1479s elapsed)
+  570/1000 done (1497s elapsed)
+  580/1000 done (1514s elapsed)
+  590/1000 done (1534s elapsed)
+  600/1000 done (1567s elapsed)
+  610/1000 done (1583s elapsed)
+  620/1000 done (1611s elapsed)
+  630/1000 done (1644s elapsed)
+  640/1000 done (1663s elapsed)
+  650/1000 done (1682s elapsed)
+  660/1000 done (1703s elapsed)
+  670/1000 done (1723s elapsed)
+  680/1000 done (1747s elapsed)
+  690/1000 done (1767s elapsed)
+  700/1000 done (1792s elapsed)
+  710/1000 done (1806s elapsed)
+  720/1000 done (1820s elapsed)
+  730/1000 done (1839s elapsed)
+  740/1000 done (1857s elapsed)
+  750/1000 done (1880s elapsed)
+  760/1000 done (1914s elapsed)
+  770/1000 done (1934s elapsed)
+  780/1000 done (1960s elapsed)
+  790/1000 done (1983s elapsed)
+  800/1000 done (2001s elapsed)
+  810/1000 done (2029s elapsed)
+  820/1000 done (2049s elapsed)
+  830/1000 done (2075s elapsed)
+  840/1000 done (2094s elapsed)
+  850/1000 done (2103s elapsed)
+  860/1000 done (2118s elapsed)
+  870/1000 done (2133s elapsed)
+  880/1000 done (2153s elapsed)
+  890/1000 done (2167s elapsed)
+  900/1000 done (2181s elapsed)
+  910/1000 done (2196s elapsed)
+  920/1000 done (2200s elapsed)
+  930/1000 done (2221s elapsed)
+  940/1000 done (2237s elapsed)
+  950/1000 done (2250s elapsed)
+  960/1000 done (2279s elapsed)
+  970/1000 done (2303s elapsed)
+  980/1000 done (2332s elapsed)
+  990/1000 done (2405s elapsed)
+  1000/1000 done (2518s elapsed)
+
+==================== BASELINE REPORT ====================
+games=1000  wall=2518.0s  avg_game=2.52s
+
+Score:
+  mean       126952
+  median      88743
+  p90        244629
+  p99        278157
+  max        731568
+
+Moves/game: 891    best max-tile: 6144
+Search speed: 579.4 ms/move avg
+
+Reach rate (games whose max tile >= T):
+     192 : 100.0%  (1000/1000)
+     384 : 100.0%  (1000/1000)
+     768 :  97.9%  (979/1000)
+    1536 :  88.2%  (882/1000)
+    3072 :  33.6%  (336/1000)
+    6144 :   0.8%  (8/1000)
+   12288 :   0.0%  (0/1000)
+
+Max-tile distribution:
+     384 : 21
+     768 : 97
+    1536 : 546
+    3072 : 328
+    6144 : 8
+========================================================
+New high-score replay: results/records/record_731568.json (score 731568)
+Run summary appended to results/ntsearch_summaries.jsonl
+Per-game JSONL written to results/ntsearch_big_d3.jsonl
+
+=== bench -agent expectimax -depthcap 3 -label expectimax-d3 -out results/expectimax_d3.jsonl ===
+Running 1000 games, 240 workers, base seed 1...
+  10/1000 done (29s elapsed)
+  20/1000 done (34s elapsed)
+  30/1000 done (38s elapsed)
+  40/1000 done (40s elapsed)
+  50/1000 done (41s elapsed)
+  60/1000 done (44s elapsed)
+  70/1000 done (47s elapsed)
+  80/1000 done (49s elapsed)
+  90/1000 done (52s elapsed)
+  100/1000 done (53s elapsed)
+  110/1000 done (55s elapsed)
+  120/1000 done (58s elapsed)
+  130/1000 done (59s elapsed)
+  140/1000 done (61s elapsed)
+  150/1000 done (63s elapsed)
+  160/1000 done (66s elapsed)
+  170/1000 done (67s elapsed)
+  180/1000 done (69s elapsed)
+  190/1000 done (71s elapsed)
+  200/1000 done (72s elapsed)
+  210/1000 done (74s elapsed)
+  220/1000 done (76s elapsed)
+  230/1000 done (80s elapsed)
+  240/1000 done (81s elapsed)
+  250/1000 done (85s elapsed)
+  260/1000 done (88s elapsed)
+  270/1000 done (90s elapsed)
+  280/1000 done (92s elapsed)
+  290/1000 done (95s elapsed)
+  300/1000 done (99s elapsed)
+  310/1000 done (100s elapsed)
+  320/1000 done (102s elapsed)
+  330/1000 done (105s elapsed)
+  340/1000 done (108s elapsed)
+  350/1000 done (109s elapsed)
+  360/1000 done (112s elapsed)
+  370/1000 done (114s elapsed)
+  380/1000 done (117s elapsed)
+  390/1000 done (120s elapsed)
+  400/1000 done (123s elapsed)
+  410/1000 done (124s elapsed)
+  420/1000 done (127s elapsed)
+  430/1000 done (130s elapsed)
+  440/1000 done (132s elapsed)
+  450/1000 done (135s elapsed)
+  460/1000 done (137s elapsed)
+  470/1000 done (140s elapsed)
+  480/1000 done (143s elapsed)
+  490/1000 done (146s elapsed)
+  500/1000 done (148s elapsed)
+  510/1000 done (151s elapsed)
+  520/1000 done (153s elapsed)
+  530/1000 done (155s elapsed)
+  540/1000 done (156s elapsed)
+  550/1000 done (159s elapsed)
+  560/1000 done (160s elapsed)
+  570/1000 done (162s elapsed)
+  580/1000 done (165s elapsed)
+  590/1000 done (166s elapsed)
+  600/1000 done (169s elapsed)
+  610/1000 done (171s elapsed)
+  620/1000 done (174s elapsed)
+  630/1000 done (176s elapsed)
+  640/1000 done (180s elapsed)
+  650/1000 done (182s elapsed)
+  660/1000 done (185s elapsed)
+  670/1000 done (187s elapsed)
+  680/1000 done (190s elapsed)
+  690/1000 done (192s elapsed)
+  700/1000 done (194s elapsed)
+  710/1000 done (197s elapsed)
+  720/1000 done (199s elapsed)
+  730/1000 done (200s elapsed)
+  740/1000 done (203s elapsed)
+  750/1000 done (207s elapsed)
+  760/1000 done (209s elapsed)
+  770/1000 done (213s elapsed)
+  780/1000 done (214s elapsed)
+  790/1000 done (216s elapsed)
+  800/1000 done (218s elapsed)
+  810/1000 done (220s elapsed)
+  820/1000 done (221s elapsed)
+  830/1000 done (223s elapsed)
+  840/1000 done (224s elapsed)
+  850/1000 done (226s elapsed)
+  860/1000 done (227s elapsed)
+  870/1000 done (230s elapsed)
+  880/1000 done (231s elapsed)
+  890/1000 done (233s elapsed)
+  900/1000 done (234s elapsed)
+  910/1000 done (235s elapsed)
+  920/1000 done (237s elapsed)
+  930/1000 done (238s elapsed)
+  940/1000 done (240s elapsed)
+  950/1000 done (242s elapsed)
+  960/1000 done (243s elapsed)
+  970/1000 done (245s elapsed)
+  980/1000 done (248s elapsed)
+  990/1000 done (251s elapsed)
+  1000/1000 done (262s elapsed)
+
+==================== BASELINE REPORT ====================
+games=1000  wall=262.0s  avg_game=0.26s
+
+Score:
+  mean       117292
+  median      87405
+  p90        239007
+  p99        547206
+  max        732342
+
+Moves/game: 832    best max-tile: 6144
+Search speed: 66.7 ms/move avg
+
+Reach rate (games whose max tile >= T):
+     192 :  99.9%  (999/1000)
+     384 :  99.8%  (998/1000)
+     768 :  97.7%  (977/1000)
+    1536 :  81.5%  (815/1000)
+    3072 :  28.8%  (288/1000)
+    6144 :   1.3%  (13/1000)
+   12288 :   0.0%  (0/1000)
+
+Max-tile distribution:
+      96 : 1
+     192 : 1
+     384 : 21
+     768 : 162
+    1536 : 527
+    3072 : 275
+    6144 : 13
+========================================================
+New high-score replay: results/records/record_732342.json (score 732342)
+Run summary appended to results/ntsearch_summaries.jsonl
+Per-game JSONL written to results/expectimax_d3.jsonl
+
+=== bench -agent ntuple-search -model models/ntuple_big.gob -depthcap 4 -label ntsearch-big-d4 -out results/ntsearch_big_d4.jsonl ===
+Agent ntuple-search using model models/ntuple_big.gob (4 tuples)
+Running 1000 games, 240 workers, base seed 1...
+  10/1000 done (1513s elapsed)
+  20/1000 done (1967s elapsed)
+  30/1000 done (2302s elapsed)
+  40/1000 done (2441s elapsed)
+  50/1000 done (2686s elapsed)
+  60/1000 done (2787s elapsed)
+  70/1000 done (2901s elapsed)
+  80/1000 done (3038s elapsed)
+  90/1000 done (3151s elapsed)
+  100/1000 done (3238s elapsed)
+  110/1000 done (3411s elapsed)
+  120/1000 done (3573s elapsed)
+  130/1000 done (3754s elapsed)
+  140/1000 done (3891s elapsed)
+  150/1000 done (3973s elapsed)
+  160/1000 done (4059s elapsed)
+  170/1000 done (4162s elapsed)
+  180/1000 done (4349s elapsed)
+  190/1000 done (4465s elapsed)
+  200/1000 done (4642s elapsed)
+  210/1000 done (4815s elapsed)
+  220/1000 done (4946s elapsed)
+  230/1000 done (5062s elapsed)
+  240/1000 done (5168s elapsed)
+  250/1000 done (5348s elapsed)
+  260/1000 done (5472s elapsed)
+  270/1000 done (5672s elapsed)
+  280/1000 done (5856s elapsed)
+  290/1000 done (6002s elapsed)
+  300/1000 done (6220s elapsed)
+  310/1000 done (6381s elapsed)
+  320/1000 done (6501s elapsed)
+  330/1000 done (6614s elapsed)
+  340/1000 done (6898s elapsed)
+  350/1000 done (7048s elapsed)
+  360/1000 done (7199s elapsed)
+  370/1000 done (7291s elapsed)
+  380/1000 done (7430s elapsed)
+  390/1000 done (7506s elapsed)
+  400/1000 done (7652s elapsed)
+  410/1000 done (7828s elapsed)
+  420/1000 done (8003s elapsed)
+  430/1000 done (8159s elapsed)
+  440/1000 done (8293s elapsed)
+  450/1000 done (8430s elapsed)
+  460/1000 done (8554s elapsed)
+  470/1000 done (8716s elapsed)
+  480/1000 done (8902s elapsed)
+  490/1000 done (9042s elapsed)
+  500/1000 done (9241s elapsed)
+  510/1000 done (9422s elapsed)
+  520/1000 done (9617s elapsed)
+  530/1000 done (9844s elapsed)
+  540/1000 done (10030s elapsed)
+  550/1000 done (10110s elapsed)
+  560/1000 done (10224s elapsed)
+  570/1000 done (10375s elapsed)
+  580/1000 done (10579s elapsed)
+  590/1000 done (10702s elapsed)
+  600/1000 done (10793s elapsed)
+  610/1000 done (10936s elapsed)
+  620/1000 done (11106s elapsed)
+  630/1000 done (11253s elapsed)
+  640/1000 done (11349s elapsed)
+  650/1000 done (11490s elapsed)
+  660/1000 done (11640s elapsed)
+  670/1000 done (11862s elapsed)
+  680/1000 done (12100s elapsed)
+  690/1000 done (12173s elapsed)
+  700/1000 done (12325s elapsed)
+  710/1000 done (12441s elapsed)
+  720/1000 done (12607s elapsed)
+  730/1000 done (12796s elapsed)
+  740/1000 done (12916s elapsed)
+  750/1000 done (13116s elapsed)
+  760/1000 done (13255s elapsed)
+  770/1000 done (13313s elapsed)
+  780/1000 done (13458s elapsed)
+  790/1000 done (13606s elapsed)
+  800/1000 done (13698s elapsed)
+  810/1000 done (13877s elapsed)
+  820/1000 done (14021s elapsed)
+  830/1000 done (14188s elapsed)
+  840/1000 done (14284s elapsed)
+  850/1000 done (14348s elapsed)
+  860/1000 done (14470s elapsed)
+  870/1000 done (14572s elapsed)
+  880/1000 done (14731s elapsed)
+  890/1000 done (14808s elapsed)
+  900/1000 done (14881s elapsed)
+  910/1000 done (14962s elapsed)
+  920/1000 done (15023s elapsed)
+  930/1000 done (15207s elapsed)
+  940/1000 done (15278s elapsed)
+  950/1000 done (15363s elapsed)
+  960/1000 done (15517s elapsed)
+  970/1000 done (15769s elapsed)
+  980/1000 done (16016s elapsed)
+  990/1000 done (16387s elapsed)
+  1000/1000 done (17847s elapsed)
+
+==================== BASELINE REPORT ====================
+games=1000  wall=17847.1s  avg_game=17.85s
+
+Score:
+  mean       159011
+  median      93018
+  p90        263427
+  p99        613485
+  max        752253
+
+Moves/game: 968    best max-tile: 6144
+Search speed: 3650.1 ms/move avg
+
+Reach rate (games whose max tile >= T):
+     192 : 100.0%  (1000/1000)
+     384 : 100.0%  (1000/1000)
+     768 :  98.7%  (987/1000)
+    1536 :  88.8%  (888/1000)
+    3072 :  47.5%  (475/1000)
+    6144 :   2.9%  (29/1000)
+   12288 :   0.0%  (0/1000)
+
+Max-tile distribution:
+     384 : 13
+     768 : 99
+    1536 : 413
+    3072 : 446
+    6144 : 29
+========================================================
+New high-score replay: results/records/record_752253.json (score 752253)
+Run summary appended to results/ntsearch_summaries.jsonl
+Per-game JSONL written to results/ntsearch_big_d4.jsonl
+
+=== bench -agent expectimax -depthcap 4 -label expectimax-d4 -out results/expectimax_d4.jsonl ===
+Running 1000 games, 240 workers, base seed 1...
+  10/1000 done (140s elapsed)
+  20/1000 done (197s elapsed)
+  30/1000 done (214s elapsed)
+  40/1000 done (237s elapsed)
+  50/1000 done (247s elapsed)
+  60/1000 done (259s elapsed)
+  70/1000 done (273s elapsed)
+  80/1000 done (280s elapsed)
+  90/1000 done (295s elapsed)
+  100/1000 done (305s elapsed)
+  110/1000 done (324s elapsed)
+  120/1000 done (342s elapsed)
+  130/1000 done (360s elapsed)
+  140/1000 done (369s elapsed)
+  150/1000 done (385s elapsed)
+  160/1000 done (407s elapsed)
+  170/1000 done (423s elapsed)
+  180/1000 done (433s elapsed)
+  190/1000 done (439s elapsed)
+  200/1000 done (455s elapsed)
+  210/1000 done (461s elapsed)
+  220/1000 done (474s elapsed)
+  230/1000 done (484s elapsed)
+  240/1000 done (496s elapsed)
+  250/1000 done (518s elapsed)
+  260/1000 done (527s elapsed)
+  270/1000 done (542s elapsed)
+  280/1000 done (566s elapsed)
+  290/1000 done (576s elapsed)
+  300/1000 done (589s elapsed)
+  310/1000 done (607s elapsed)
+  320/1000 done (623s elapsed)
+  330/1000 done (638s elapsed)
+  340/1000 done (651s elapsed)
+  350/1000 done (677s elapsed)
+  360/1000 done (688s elapsed)
+  370/1000 done (704s elapsed)
+  380/1000 done (723s elapsed)
+  390/1000 done (735s elapsed)
+  400/1000 done (744s elapsed)
+  410/1000 done (762s elapsed)
+  420/1000 done (786s elapsed)
+  430/1000 done (802s elapsed)
+  440/1000 done (812s elapsed)
+  450/1000 done (827s elapsed)
+  460/1000 done (837s elapsed)
+  470/1000 done (845s elapsed)
+  480/1000 done (860s elapsed)
+  490/1000 done (873s elapsed)
+  500/1000 done (883s elapsed)
+  510/1000 done (900s elapsed)
+  520/1000 done (914s elapsed)
+  530/1000 done (922s elapsed)
+  540/1000 done (930s elapsed)
+  550/1000 done (944s elapsed)
+  560/1000 done (967s elapsed)
+  570/1000 done (983s elapsed)
+  580/1000 done (1013s elapsed)
+  590/1000 done (1029s elapsed)
+  600/1000 done (1049s elapsed)
+  610/1000 done (1062s elapsed)
+  620/1000 done (1079s elapsed)
+  630/1000 done (1093s elapsed)
+  640/1000 done (1111s elapsed)
+  650/1000 done (1124s elapsed)
+  660/1000 done (1138s elapsed)
+  670/1000 done (1148s elapsed)
+  680/1000 done (1163s elapsed)
+  690/1000 done (1184s elapsed)
+  700/1000 done (1195s elapsed)
+  710/1000 done (1211s elapsed)
+  720/1000 done (1226s elapsed)
+  730/1000 done (1239s elapsed)
+  740/1000 done (1260s elapsed)
+  750/1000 done (1271s elapsed)
+  760/1000 done (1287s elapsed)
+  770/1000 done (1299s elapsed)
+  780/1000 done (1315s elapsed)
+  790/1000 done (1331s elapsed)
+  800/1000 done (1341s elapsed)
+  810/1000 done (1353s elapsed)
+  820/1000 done (1363s elapsed)
+  830/1000 done (1377s elapsed)
+  840/1000 done (1388s elapsed)
+  850/1000 done (1403s elapsed)
+  860/1000 done (1407s elapsed)
+  870/1000 done (1413s elapsed)
+  880/1000 done (1423s elapsed)
+  890/1000 done (1431s elapsed)
+  900/1000 done (1439s elapsed)
+  910/1000 done (1445s elapsed)
+  920/1000 done (1453s elapsed)
+  930/1000 done (1472s elapsed)
+  940/1000 done (1480s elapsed)
+  950/1000 done (1490s elapsed)
+  960/1000 done (1506s elapsed)
+  970/1000 done (1526s elapsed)
+  980/1000 done (1546s elapsed)
+  990/1000 done (1568s elapsed)
+  1000/1000 done (1698s elapsed)
+
+==================== BASELINE REPORT ====================
+games=1000  wall=1698.0s  avg_game=1.70s
+
+Score:
+  mean       177042
+  median     188079
+  p90        266454
+  p99        671793
+  max        860298
+
+Moves/game: 989    best max-tile: 6144
+Search speed: 346.2 ms/move avg
+
+Reach rate (games whose max tile >= T):
+     192 : 100.0%  (1000/1000)
+     384 :  99.9%  (999/1000)
+     768 :  99.4%  (994/1000)
+    1536 :  93.0%  (930/1000)
+    3072 :  51.9%  (519/1000)
+    6144 :   4.6%  (46/1000)
+   12288 :   0.0%  (0/1000)
+
+Max-tile distribution:
+     192 : 1
+     384 : 5
+     768 : 64
+    1536 : 411
+    3072 : 473
+    6144 : 46
+========================================================
+New high-score replay: results/records/record_860298.json (score 860298)
+Run summary appended to results/ntsearch_summaries.jsonl
+Per-game JSONL written to results/expectimax_d4.jsonl
+
+=== bench -agent ntuple-search -model models/ntuple_big.gob -depthcap 5 -label ntsearch-big-d5 -out results/ntsearch_big_d5.jsonl ===
+Agent ntuple-search using model models/ntuple_big.gob (4 tuples)
+Running 1000 games, 240 workers, base seed 1...
+  10/1000 done (6357s elapsed)
+  20/1000 done (7587s elapsed)
+  30/1000 done (8525s elapsed)
+  40/1000 done (9114s elapsed)
+  50/1000 done (10067s elapsed)
+  60/1000 done (10849s elapsed)
+  70/1000 done (11490s elapsed)
+  80/1000 done (11915s elapsed)
+  90/1000 done (12681s elapsed)
+  100/1000 done (13253s elapsed)
+  110/1000 done (14052s elapsed)
+  120/1000 done (14638s elapsed)
+  130/1000 done (15252s elapsed)
+  140/1000 done (15619s elapsed)
+  150/1000 done (16138s elapsed)
+  160/1000 done (16799s elapsed)
+  170/1000 done (17410s elapsed)
+  180/1000 done (17832s elapsed)
+  190/1000 done (18387s elapsed)
+  200/1000 done (19152s elapsed)
+  210/1000 done (19618s elapsed)
+  220/1000 done (20276s elapsed)
+  230/1000 done (20953s elapsed)
+  240/1000 done (21692s elapsed)
+  250/1000 done (22388s elapsed)
+  260/1000 done (22784s elapsed)
+  270/1000 done (23501s elapsed)
+  280/1000 done (24182s elapsed)
+  290/1000 done (24910s elapsed)
+  300/1000 done (25365s elapsed)
+  310/1000 done (26209s elapsed)
+  320/1000 done (26944s elapsed)
+  330/1000 done (27553s elapsed)
+  340/1000 done (28208s elapsed)
+  350/1000 done (29114s elapsed)
+  360/1000 done (29663s elapsed)
+  370/1000 done (30488s elapsed)
+  380/1000 done (30951s elapsed)
+  390/1000 done (31690s elapsed)
+  400/1000 done (32210s elapsed)
+  410/1000 done (32744s elapsed)
+  420/1000 done (33155s elapsed)
+  430/1000 done (33651s elapsed)
+  440/1000 done (34616s elapsed)
+  450/1000 done (35223s elapsed)
+  460/1000 done (35836s elapsed)
+  470/1000 done (36730s elapsed)
+  480/1000 done (37299s elapsed)
+  490/1000 done (37951s elapsed)
+  500/1000 done (38716s elapsed)
+  510/1000 done (39254s elapsed)
+  520/1000 done (39758s elapsed)
+  530/1000 done (40273s elapsed)
+  540/1000 done (40904s elapsed)
+  550/1000 done (41653s elapsed)
+  560/1000 done (42529s elapsed)
+  570/1000 done (43094s elapsed)
+  580/1000 done (43877s elapsed)
+  590/1000 done (44444s elapsed)
+  600/1000 done (45076s elapsed)
+  610/1000 done (45269s elapsed)
+  620/1000 done (45851s elapsed)
+  630/1000 done (46424s elapsed)
+  640/1000 done (46936s elapsed)
+  650/1000 done (47274s elapsed)
+  660/1000 done (48175s elapsed)
+  670/1000 done (48782s elapsed)
+  680/1000 done (49325s elapsed)
+  690/1000 done (49965s elapsed)
+  700/1000 done (50826s elapsed)
+  710/1000 done (51419s elapsed)
+  720/1000 done (51793s elapsed)
+  730/1000 done (52484s elapsed)
+  740/1000 done (53036s elapsed)
+  750/1000 done (53579s elapsed)
+  760/1000 done (54435s elapsed)
+  770/1000 done (55071s elapsed)
+  780/1000 done (56035s elapsed)
+  790/1000 done (56516s elapsed)
+  800/1000 done (57102s elapsed)
+  810/1000 done (57739s elapsed)
+  820/1000 done (58217s elapsed)
+  830/1000 done (58672s elapsed)
+  840/1000 done (59466s elapsed)
+  850/1000 done (59831s elapsed)
+  860/1000 done (60369s elapsed)
+  870/1000 done (60802s elapsed)
+  880/1000 done (61174s elapsed)
+  890/1000 done (61499s elapsed)
+  900/1000 done (61785s elapsed)
+  910/1000 done (62061s elapsed)
+  920/1000 done (62479s elapsed)
+  930/1000 done (62897s elapsed)
+  940/1000 done (63428s elapsed)
+  950/1000 done (64037s elapsed)
+  960/1000 done (64787s elapsed)
+  970/1000 done (65544s elapsed)
+  980/1000 done (66996s elapsed)
+  990/1000 done (68279s elapsed)
+  1000/1000 done (76481s elapsed)
+
+==================== BASELINE REPORT ====================
+games=1000  wall=76480.8s  avg_game=76.48s
+
+Score:
+  mean       190246
+  median     200850
+  p90        269997
+  p99        725700
+  max        799374
+
+Moves/game: 1029    best max-tile: 6144
+Search speed: 14284.1 ms/move avg
+
+Reach rate (games whose max tile >= T):
+     192 : 100.0%  (1000/1000)
+     384 : 100.0%  (1000/1000)
+     768 :  98.6%  (986/1000)
+    1536 :  91.3%  (913/1000)
+    3072 :  56.2%  (562/1000)
+    6144 :   6.4%  (64/1000)
+   12288 :   0.0%  (0/1000)
+
+Max-tile distribution:
+     384 : 14
+     768 : 73
+    1536 : 351
+    3072 : 498
+    6144 : 64
+========================================================
+No new record this run (existing record score 860298 not beaten)
+Run summary appended to results/ntsearch_summaries.jsonl
+Per-game JSONL written to results/ntsearch_big_d5.jsonl
+
+=== bench -agent expectimax -depthcap 5 -label expectimax-d5 -out results/expectimax_d5.jsonl ===
+Running 1000 games, 240 workers, base seed 1...
+  10/1000 done (646s elapsed)
+  20/1000 done (754s elapsed)
+  30/1000 done (888s elapsed)
+  40/1000 done (995s elapsed)
+  50/1000 done (1049s elapsed)
+  60/1000 done (1133s elapsed)
+  70/1000 done (1184s elapsed)
+  80/1000 done (1281s elapsed)
+  90/1000 done (1322s elapsed)
+  100/1000 done (1392s elapsed)
+  110/1000 done (1485s elapsed)
+  120/1000 done (1561s elapsed)
+  130/1000 done (1597s elapsed)
+  140/1000 done (1652s elapsed)
+  150/1000 done (1689s elapsed)
+  160/1000 done (1766s elapsed)
+  170/1000 done (1821s elapsed)
+  180/1000 done (1874s elapsed)
+  190/1000 done (1943s elapsed)
+  200/1000 done (1992s elapsed)
+  210/1000 done (2025s elapsed)
+  220/1000 done (2077s elapsed)
+  230/1000 done (2162s elapsed)
+  240/1000 done (2234s elapsed)
+  250/1000 done (2285s elapsed)
+  260/1000 done (2382s elapsed)
+  270/1000 done (2442s elapsed)
+  280/1000 done (2484s elapsed)
+  290/1000 done (2565s elapsed)
+  300/1000 done (2635s elapsed)
+  310/1000 done (2679s elapsed)
+  320/1000 done (2761s elapsed)
+  330/1000 done (2814s elapsed)
+  340/1000 done (2928s elapsed)
+  350/1000 done (3019s elapsed)
+  360/1000 done (3102s elapsed)
+  370/1000 done (3201s elapsed)
+  380/1000 done (3239s elapsed)
+  390/1000 done (3300s elapsed)
+  400/1000 done (3352s elapsed)
+  410/1000 done (3443s elapsed)
+  420/1000 done (3510s elapsed)
+  430/1000 done (3572s elapsed)
+  440/1000 done (3608s elapsed)
+  450/1000 done (3656s elapsed)
+  460/1000 done (3696s elapsed)
+  470/1000 done (3762s elapsed)
+  480/1000 done (3805s elapsed)
+  490/1000 done (3866s elapsed)
+  500/1000 done (3937s elapsed)
+  510/1000 done (3993s elapsed)
+  520/1000 done (4047s elapsed)
+  530/1000 done (4123s elapsed)
+  540/1000 done (4166s elapsed)
+  550/1000 done (4243s elapsed)
+  560/1000 done (4328s elapsed)
+  570/1000 done (4402s elapsed)
+  580/1000 done (4505s elapsed)
+  590/1000 done (4568s elapsed)
+  600/1000 done (4649s elapsed)
+  610/1000 done (4710s elapsed)
+  620/1000 done (4791s elapsed)
+  630/1000 done (4834s elapsed)
+  640/1000 done (4911s elapsed)
+  650/1000 done (4951s elapsed)
+  660/1000 done (5014s elapsed)
+  670/1000 done (5072s elapsed)
+  680/1000 done (5144s elapsed)
+  690/1000 done (5214s elapsed)
+  700/1000 done (5266s elapsed)
+  710/1000 done (5313s elapsed)
+  720/1000 done (5399s elapsed)
+  730/1000 done (5447s elapsed)
+  740/1000 done (5543s elapsed)
+  750/1000 done (5594s elapsed)
+  760/1000 done (5646s elapsed)
+  770/1000 done (5670s elapsed)
+  780/1000 done (5741s elapsed)
+  790/1000 done (5785s elapsed)
+  800/1000 done (5820s elapsed)
+  810/1000 done (5901s elapsed)
+  820/1000 done (5939s elapsed)
+  830/1000 done (6014s elapsed)
+  840/1000 done (6082s elapsed)
+  850/1000 done (6120s elapsed)
+  860/1000 done (6156s elapsed)
+  870/1000 done (6188s elapsed)
+  880/1000 done (6218s elapsed)
+  890/1000 done (6241s elapsed)
+  900/1000 done (6288s elapsed)
+  910/1000 done (6328s elapsed)
+  920/1000 done (6384s elapsed)
+  930/1000 done (6445s elapsed)
+  940/1000 done (6520s elapsed)
+  950/1000 done (6619s elapsed)
+  960/1000 done (6676s elapsed)
+  970/1000 done (6763s elapsed)
+  980/1000 done (6853s elapsed)
+  990/1000 done (6975s elapsed)
+  1000/1000 done (7434s elapsed)
+
+==================== BASELINE REPORT ====================
+games=1000  wall=7434.1s  avg_game=7.43s
+
+Score:
+  mean       251707
+  median     219912
+  p90        600621
+  p99        775137
+  max        810066
+
+Moves/game: 1114    best max-tile: 6144
+Search speed: 1347.9 ms/move avg
+
+Reach rate (games whose max tile >= T):
+     192 : 100.0%  (1000/1000)
+     384 : 100.0%  (1000/1000)
+     768 :  99.8%  (998/1000)
+    1536 :  96.6%  (966/1000)
+    3072 :  69.8%  (698/1000)
+    6144 :  15.2%  (152/1000)
+   12288 :   0.0%  (0/1000)
+
+Max-tile distribution:
+     384 : 2
+     768 : 32
+    1536 : 268
+    3072 : 546
+    6144 : 152
+========================================================
+No new record this run (existing record score 860298 not beaten)
+Run summary appended to results/ntsearch_summaries.jsonl
+Per-game JSONL written to results/expectimax_d5.jsonl
+
+All done. Head-to-head summaries: results/ntsearch_summaries.jsonl
+Best replay across all runs: results/records/
