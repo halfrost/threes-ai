@@ -238,12 +238,33 @@ _Planned: depth 6 (on cloud); heuristic vs N-tuple leaf; beam on/off; TT on/off.
   games top out at 1536 (max score ~88k). An order of magnitude below the depth-6
   expectimax (6144 @21%). Its real job is as a **search leaf** → T3.
 
-### T3 — Big-tuple value function as an expectimax leaf vs the hand heuristic — running
-- `scripts/eval_ntuple_search.sh models/ntuple_big.gob` — for depths 3/4/5, same
-  seeds, `ntuple-search` (learned leaf) vs `expectimax` (hand heuristic), both
-  deck-aware, N=1000. The paper's central learned-value-vs-hand-heuristic test:
-  can a learned leaf let a *shallower* search match a *deeper* hand-heuristic one
-  (a compute win), and/or lift the 3072/6144 rates? (Results: TBD.)
+### T3 — Big-tuple value function as an expectimax leaf vs the hand heuristic — ★ done (cloud, N=1000)
+`scripts/eval_ntuple_search.sh models/ntuple_big.gob` — depths 3/4/5, same seeds,
+`ntuple-search` (the T2 big model as the leaf) vs `expectimax` (hand heuristic),
+both deck-aware. Head-to-head (`results/ntsearch_summaries.jsonl`):
+
+| depth | mean (hand / ntuple) | 3072 (h/n) | 6144 (h/n) | ms/move (h/n) |
+|---|---|---|---|---|
+| 3 | 117,292 / **126,952** | 28.8% / **33.6%** | 1.3% / 0.8% | 67 / 579 |
+| 4 | **177,042** / 159,011 | **51.9%** / 47.5% | **4.6%** / 2.9% | 346 / 3,650 |
+| 5 | **251,707** / 190,246 | **69.8%** / 56.2% | **15.2%** / 6.4% | 1,348 / 14,284 |
+
+- **The learned leaf helps only at shallow depth.** At d3 the T2 model beats the
+  hand heuristic (+8.2% mean, +4.8 pts on 3072); at d4 and d5 the hand heuristic
+  pulls ahead and the gap *widens* (−10% at d4, −24% at d5, and less than half the
+  6144 rate at d5).
+- **The compute-win hypothesis fails.** The learned leaf is 8–11× slower per move
+  (the big 4×6 table is costly to evaluate at every leaf), so ntuple-leaf-d3
+  (127k @ 579 ms) does not come close to hand-heuristic-d4 (177k @ 346 ms) — at
+  equal or less compute the hand heuristic dominates.
+- **Why:** T2 was trained as a **depth-0 greedy** value function (greedy asymptote
+  ~21k, saturated). Such a value is fine as a *shallow* leaf but a hand heuristic
+  with explicit merge / monotonicity / empty terms is a better and far cheaper
+  evaluator once search does the lookahead. **This is the motivation for T4** — a
+  *stronger* learned value (break the greedy plateau) is needed before a learned
+  leaf can beat the hand heuristic at useful depths.
+- Best single game across all T3 runs: **860,298 (6144 tile)** — from the hand
+  heuristic at d4 (`results/records/record_860298.json`).
 
 ### T4 — big2 + temporal-coherence + α anneal, to break the T2 plateau — ready to run
 - `scripts/train_big2_tc.sh` → `models/ntuple_big2_tc.gob`. Three levers stacked
