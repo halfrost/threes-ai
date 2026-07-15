@@ -311,6 +311,26 @@ class MacThreesDevice:
                     board[r][c] = engine_board[r][c]           # unreadable frame -> trust engine
         return board, shape
 
+    def _resync(self, shape, eng):
+        """Re-anchor the board to the screen WITHOUT glyph-reading high tiles. Trust
+        the colour grid for occupancy and low (1/2) values, but keep the engine's
+        deterministic value for any WHITE (>=3) cell. This is the endgame-safe resync:
+        glyph-matching a packed board of big tiles is exactly where a 768 gets read as
+        384 (the library tops out below it) and corrupts state — but a merge's value
+        is fixed, so the engine already knows every high tile. So only the spawn /
+        occupancy comes from the screen; the high values never do."""
+        b = [[0] * 4 for _ in range(4)]
+        for r in range(4):
+            for c in range(4):
+                s = shape[r][c]
+                if s in (1, 2):
+                    b[r][c] = s                                # low spawn: colour is exact
+                elif s == 3:                                   # white: keep the engine value
+                    b[r][c] = eng[r][c] if eng[r][c] >= 3 else 3
+                elif s == -1:
+                    b[r][c] = eng[r][c]                        # noisy cell -> trust engine
+        return b
+
     def swipe(self, move):
         # Threes-on-Mac takes arrow keys (a mouse-drag swipe does NOT register).
         # Keys go to the frontmost app, so keep the game focused. A legal move always
@@ -346,8 +366,8 @@ class MacThreesDevice:
             # re-ask), NOT a dead game — the endgame false-over that used to stop us a
             # few moves short of the real settlement screen. noops>=30 is a wedge
             # backstop only (mouse swipes are reliable, so this rarely bites).
-            fresh, _ = self._stable_np()
-            self.board, _ = self._exact_board(fresh)
+            fresh, fshape = self._stable_np()
+            self.board = self._resync(fshape, self.board)      # occupancy only, keep high vals
             self.next = read_next(fresh) or self.next
             filled = sum(1 for r in range(4) for c in range(4) if self.board[r][c] > 0)
             self.noops += 1
@@ -380,7 +400,7 @@ class MacThreesDevice:
         occ = sum(1 for r in range(4) for c in range(4)
                   if (nb[r][c] > 0) != (shape[r][c] in (1, 2, 3)))
         if len(spawns) != 1 or occ:
-            nb, _ = self._exact_board(npim, nb)
+            nb = self._resync(shape, nb)                 # occupancy only, keep high vals
             occ = sum(1 for r in range(4) for c in range(4)
                       if (nb[r][c] > 0) != (shape[r][c] in (1, 2, 3)))
         self.board = nb
