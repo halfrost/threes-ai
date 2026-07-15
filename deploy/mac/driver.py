@@ -39,6 +39,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))    # rep
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "rl"))
 from mobile_core import run_scoring, dry_run, EngineDevice  # noqa: E402
 from threes_env import apply_move  # noqa: E402
+from common import VALUE  # noqa: E402
 
 # Board tile-centre geometry in the 2x window capture (px). Calibrated from a
 # 1024x796-pt window; SCALE converts capture px -> screen points for the swipe.
@@ -105,18 +106,85 @@ def read_next(npim):
     return cls if cls in (1, 2, 3) else 0
 
 
+def _glyph(npim, cx, cy):
+    """Normalised digit glyph of the tile centred at (cx,cy): the number region
+    (above the monster face), colour-agnostic ink (any non-white pixel — some big
+    tiles render the number in pink), resized to a fixed 48x40 for matching."""
+    import numpy as np
+    from PIL import Image
+    crop = npim[cy - 70:cy + 40, cx - 72:cx + 72]
+    ink = (~((crop[:, :, 0] > 228) & (crop[:, :, 1] > 228) & (crop[:, :, 2] > 228))).astype("uint8") * 255
+    return np.asarray(Image.fromarray(ink).resize((48, 40))) / 255.0
+
+
+_GLYPH_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glyphs")
+
+
+class TileTemplates:
+    """Nearest-glyph matcher for white-tile values (INDEX 3=3 .. 15=12288). Keeps a
+    FEW exemplars per value (per-cell alignment wobbles a little, so >1 exemplar
+    keeps within-value distance below the between-value gap). Verified separation:
+    same value ~0.10, different ~0.23+, so 0.15 is a safe threshold. A pre-built
+    library on disk (deploy/mac/glyphs) is loaded at start so any board — even a
+    resumed deep one — reads exactly; new values seen mid-game are learned from the
+    engine's (deterministic merge) value and persisted, so the library keeps
+    filling in across runs."""
+    THRESH = 0.15
+    MAX_PER = 6
+
+    def __init__(self, load=True):
+        self.t = {}                     # index -> list of glyphs
+        if load:
+            self.load()
+
+    def learn(self, idx, g):
+        import numpy as np
+        if idx < 3:
+            return
+        lst = self.t.setdefault(idx, [])
+        if len(lst) < self.MAX_PER and all(float(np.abs(g - e).mean()) > 0.04 for e in lst):
+            lst.append(g)
+
+    def match(self, g):
+        import numpy as np
+        best_i, best_d = None, 1e9
+        for i, lst in self.t.items():
+            for e in lst:
+                d = float(np.abs(g - e).mean())
+                if d < best_d:
+                    best_d, best_i = d, i
+        return (best_i, best_d) if best_i is not None else (None, 1.0)
+
+    def load(self, d=_GLYPH_DIR):
+        import numpy as np
+        if not os.path.isdir(d):
+            return
+        for fn in os.listdir(d):
+            if fn.endswith(".npy"):
+                idx = int(fn[:-4])
+                arr = np.load(os.path.join(d, fn))      # (N,40,48)
+                self.t[idx] = [arr[k] for k in range(arr.shape[0])]
+
+    def save(self, d=_GLYPH_DIR):
+        import numpy as np
+        os.makedirs(d, exist_ok=True)
+        for idx, lst in self.t.items():
+            if lst:
+                np.save(os.path.join(d, f"{idx}.npy"), np.stack(lst))
+
+
 class MacThreesDevice:
     """Engine-in-the-loop Device driving the Threes app window on macOS."""
     def __init__(self, owner="Threes", region=None, move_delay=0.45, dbg=False):
         self.owner, self.region, self.move_delay, self.dbg = owner, region, move_delay, dbg
         self.desyncs = 0
         self.over = False
+        self.tmpl = TileTemplates()
         self._activate()
         npim = self._capture_np()
-        shape = read_shape(npim)
-        # Seed the tracked board. White cells are 3 at this point (a game that has
-        # only ever seen 1/2/3 so far); higher tiles are then tracked by the engine.
-        self.board = [[shape[r][c] if shape[r][c] >= 0 else 0 for c in range(4)] for r in range(4)]
+        # Seed the tracked board via colour + glyph templates (white cells are 3 at a
+        # fresh start; higher tiles get learned as they are first created).
+        self.board, _ = self._exact_board(npim)
         self.next = read_next(npim) or 1
 
     # --- capture -----------------------------------------------------------
@@ -160,6 +228,34 @@ class MacThreesDevice:
                         f'tell application "System Events" to set frontmost of process "{self.owner}" to true'],
                        capture_output=True)
 
+    def _exact_board(self, npim, engine_board=None):
+        """Read the EXACT board (indices) from the screen: colour for empty/1/2, and
+        for white tiles a fixed-font glyph TEMPLATE MATCH -> exact value (3..12288),
+        so nothing drifts. A white tile whose glyph isn't in the library yet is
+        labelled from the engine's (deterministic merge) value and its glyph learned,
+        so the library fills itself in as new tiles are first created. Returns
+        (board_indices, colour_shape)."""
+        shape = read_shape(npim)
+        board = [[0] * 4 for _ in range(4)]
+        for r in range(4):
+            for c in range(4):
+                s = shape[r][c]
+                if s in (1, 2):
+                    board[r][c] = s
+                elif s == 3:                                   # white, value >= 3
+                    g = _glyph(npim, int(X0 + c * DX), int(Y0 + r * DY))
+                    idx, d = self.tmpl.match(g)
+                    if idx is not None and d < TileTemplates.THRESH:
+                        board[r][c] = idx                      # exact, screen-anchored
+                    else:
+                        ev = engine_board[r][c] if engine_board else 0
+                        idx2 = ev if ev >= 3 else 3            # engine value, or a 3 at game start
+                        board[r][c] = idx2
+                        self.tmpl.learn(idx2, g)
+                elif s == -1 and engine_board:
+                    board[r][c] = engine_board[r][c]           # unreadable frame -> trust engine
+        return board, shape
+
     def swipe(self, move):
         # Threes-on-Mac takes arrow keys (a mouse-drag swipe does NOT register).
         # Keys go to the frontmost app, so keep the game focused. A legal move
@@ -192,30 +288,22 @@ class MacThreesDevice:
         # VALUE (3 vs 6 vs 12...) comes from the engine, since colour can't tell
         # them apart. Starting from a fresh game (all 1/2/3) the engine's merges are
         # correct, and re-syncing the shape each move keeps them correct.
+        # Engine slide/merge gives the value of any NEW merged tile (deterministic);
+        # then read the exact board off the screen (colour + glyph template match)
+        # so every cell — including high white tiles — is screen-anchored each move.
         nb, changed, moved = apply_move(self.board, move)
         if not moved:
             nb = [row[:] for row in self.board]
-        mis = 0
-        for r in range(4):
-            for c in range(4):
-                s = shape[r][c]
-                # real desync = the engine HAD a tile here whose colour disagrees
-                # with the screen (spawns, where the engine cell was empty, don't
-                # count — they are expected and simply filled in from the screen).
-                exp = 0 if nb[r][c] == 0 else (nb[r][c] if nb[r][c] in (1, 2) else 3)
-                if s >= 0 and nb[r][c] != 0 and s != exp:
-                    mis += 1
-                if s == 0:
-                    nb[r][c] = 0
-                elif s in (1, 2):
-                    nb[r][c] = s
-                elif s == 3 and nb[r][c] < 3:
-                    nb[r][c] = 3
-        self.board = nb
+        exact, shape = self._exact_board(npim, nb)
+        # desync = the engine had a tile whose value disagrees with the screen read
+        mis = sum(1 for r in range(4) for c in range(4)
+                  if nb[r][c] >= 1 and exact[r][c] >= 1 and nb[r][c] != exact[r][c])
+        self.board = exact
         self.next = read_next(npim) or self.next
         self.desyncs += 1 if mis else 0
         if self.dbg:
-            print(f"    [dbg] move={move} next={self.next} desync={mis}",
+            print(f"    [dbg] move={move} next={self.next} desync={mis} "
+                  f"templates={sorted(VALUE[i] for i in self.tmpl.t)}",
                   file=sys.stderr, flush=True)
 
     def submit_name(self, name):
@@ -224,8 +312,7 @@ class MacThreesDevice:
 
     def _seed(self):
         npim = self._capture_np()
-        shape = read_shape(npim)
-        self.board = [[shape[r][c] if shape[r][c] >= 0 else 0 for c in range(4)] for r in range(4)]
+        self.board, _ = self._exact_board(npim)     # colour + glyph templates; learns fresh 3s
         self.next = read_next(npim) or 1
 
     def restart(self):
@@ -315,7 +402,7 @@ def main():
                 if a.no_restart or moves >= 10:
                     break
                 print(f"  start didn't take ({moves} moves) — retry {attempt+1}", flush=True)
-            from common import VALUE  # noqa: E402
+            dev.tmpl.save()             # persist glyphs learned this game (grows across runs)
             print("final tracked board:", [[VALUE[i] for i in row] for row in dev.board],
                   flush=True)
             time.sleep(1.5)                      # let the game-over screen render
