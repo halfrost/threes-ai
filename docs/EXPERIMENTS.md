@@ -340,7 +340,7 @@ schema (plays in `web/replay.html`); `deploy/recorder.py` keeps only the best ga
 |------|--------|------------:|---------:|------:|-------------|
 | threesjs.io (Unity WebGL) | canvas colour+OCR, engine-in-the-loop | **9,993** | 384 | 431 | Github halfrost |
 | play.threesgame.com (WebGL) | localStorage slot.0 (exact board) | **23,634** | 768 | 407 | Github halfrost |
-| **native iOS Threes on Apple-Silicon Mac** | screen vision + engine-trust tracking, MOUSE-drag driven | **30,285** | **768** | ~230 | Game Center (`Github halfrost`†) |
+| **native iOS Threes on Apple-Silicon Mac** | screen vision + engine-trust tracking, MOUSE-drag driven | **30,285** | **768** | ~230 | in-app `Github halfrost` |
 
 The two web sites went to a genuine game over ("Out of moves!"). For each we captured the site's own
 **score-settlement screen** — threesjs.io shows `Your score: 9,993` on its Unity
@@ -372,12 +372,23 @@ mechanisms make it work:
   previewed (a 1/2/3 by colour). Occupancy drift triggers a resync that keeps the
   engine's high-tile values and only re-reads low tiles from the screen. Result:
   `occ_mis = 0` across a whole game. Game-over is decided the real way — a completely
-  full 16-tile board with no legal move — never by a failed input.
-
-† **Name is the Game Center nickname.** The native app submits scores to Game Center
-under the signed-in Apple ID; the leaderboard name is that account's nickname, which
-only the user can set (currently "Helen" on this Mac → change it to `Github halfrost`
-in the system Game Center settings). No automation can set it.
+  full 16-tile board with no legal move — never by a failed input (the driver used to
+  read the score-reveal / carousel as a drifted board and wander the menus; now it
+  detects "left the board" via a uniform dark-panel probe + a whole-board occupancy jump).
+- **Sign the leaderboard name IN-APP.** The Mac game-over shows a "SWIPE & SIGN YOUR
+  NAME" card with a text field (default "Threeby"). Plain `osascript keystroke` /
+  keycodes are ignored (same no-genuine-focus wall as the arrow keys), but a
+  **CGEvent keyboard event with `CGEventKeyboardSetUnicodeString`** on the HID tap DOES
+  land in the field. So the driver navigates to the sign card (swipe until a 4-point
+  dark-panel probe fires), clears the default, and types `Github halfrost`. Earlier we
+  wrongly concluded the name was an un-settable Game Center nickname — it is settable.
+- **Score-vs-replay caveat.** Games that stay short (max ≤192) track cleanly — the
+  recorded replay score matches the app's (e.g. **2,823** tracked ≈ 2,820). Games that
+  climb to 384/768 develop endgame *value* drift (a 768 read as 384; alt-escape
+  re-reads compound it), so the replay under-counts the real score (a **7,776** app
+  score recorded as 2,283). The settlement screenshot + signed name are always real;
+  a *perfect* high-score replay is the remaining CV limit. Signed settlement shots:
+  `results/replays/mac/settlement_{7776,30285}_signed.png` (gitignored).
 
 Full blow-by-blow (every board-read method tried, the watchdog's evolution, and
 the four bugs it surfaced) is in [`WEB_SCORING_WARSTORIES.md`](WEB_SCORING_WARSTORIES.md)
