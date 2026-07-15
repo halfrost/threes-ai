@@ -550,27 +550,46 @@ class MacThreesDevice:
         game directly, no relaunch) or 'PLAY THREES' on the start menu, and verify a
         fresh low-tile board appeared. Hard reset (kill+relaunch) only as a fallback."""
         RETRY_XY = (685, 200)              # game-over 'retry' button (capture px)
-        PLAY_XY = (1000, 1340)             # start-menu 'PLAY THREES' button (capture px)
+        PLAY_XY = (1000, 1340)             # start-menu 'PLAY THREES' button
+        ENDGAME_XY = (1000, 850)           # 'Are you sure?' -> END GAME button
 
-        def is_fresh():
+        def shape_stats():
             shape = self._stable_np()[1]
             filled = sum(1 for r in range(4) for c in range(4) if shape[r][c] > 0)
             empties = sum(1 for r in range(4) for c in range(4) if shape[r][c] == 0)
             lows = sum(1 for r in range(4) for c in range(4) if shape[r][c] in (1, 2))
-            # a live game has blue(1)/red(2) tiles; the menu/game-over polaroid boards
-            # are all-white decoration, so require some low tiles to tell them apart.
+            return filled, empties, lows
+
+        def is_fresh():
+            filled, empties, lows = shape_stats()
+            # a live game has blue(1)/red(2) tiles; menu/game-over boards are all-white.
             return 6 <= filled <= 11 and empties >= 3 and lows >= 2
 
-        for attempt in range(6):
+        def is_are_you_sure():                          # pink 'END GAME' confirm button
+            try:
+                r, g, b = self._capture_np()[850, 1000]
+                return r > 200 and 70 < g < 150 and 100 < b < 170
+            except Exception:                           # noqa: BLE001
+                return False
+
+        def is_menu():                                  # start menu = all-white deco board
+            filled, _, lows = shape_stats()
+            return lows == 0 and filled >= 10 and not self._is_sign_screen()
+
+        # State machine: from wherever the last game left us (name card / settlement /
+        # 'are you sure' / start menu / a stuck in-game board), reach a fresh board.
+        for attempt in range(24):
             if is_fresh():
                 break
-            self._click(*RETRY_XY); time.sleep(2.0)   # game-over -> retry
-            if is_fresh():
-                break
-            self._click(*PLAY_XY); time.sleep(2.0)    # start menu -> PLAY THREES
-            if is_fresh():
-                break
-            if attempt == 3:                            # last resort: hard reset
+            if is_are_you_sure():
+                self._click(*ENDGAME_XY); time.sleep(2.0)      # abandon -> start menu
+            elif self._is_sign_screen():
+                self._drag_swipe(3); time.sleep(1.0)           # off the name panel -> card
+            elif is_menu():
+                self._click(*PLAY_XY); time.sleep(2.5)         # PLAY THREES
+            else:                                              # settlement card / in-game
+                self._click(*RETRY_XY); time.sleep(2.0)        # retry (may pop 'are you sure')
+            if attempt == 15:                                  # last resort: hard reset
                 subprocess.run(["pkill", "-9", "-f", "Wrapper/Threes.app/Threes"], check=False)
                 time.sleep(2.5)
                 subprocess.run(["open", "-b", "vo.threes.exclaim"], check=False)
@@ -654,6 +673,9 @@ def main():
             shot = None
             try:
                 shot = dev.screenshot_png()      # the real settlement screen, now signed
+                if a.record_dir and shot:        # keep EVERY game's signed shot to compare
+                    with open(os.path.join(a.record_dir, f"game{g+1}.png"), "wb") as f:
+                        f.write(shot)
             except Exception:                    # noqa: BLE001
                 shot = None
             msg = (f"game {g+1}/{a.games}: {moves} moves, max {best_tile}, "
