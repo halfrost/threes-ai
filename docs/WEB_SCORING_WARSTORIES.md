@@ -285,6 +285,22 @@ apps on Mac", `~/Library/Containers/vo.threes.exclaim`, the binary lives in a
   pair; with any empty cell a slide is always legal. Decide game-over by that rule on
   the tracked board, and a stuck input becomes "re-read and retry", not a premature
   settlement at 945 points.
+- **Signing the leaderboard name — the input wall, cracked.** We first concluded the
+  Mac name was an un-settable Game Center nickname. Wrong: game over shows a "SWIPE &
+  SIGN YOUR NAME" card with a real text field (default "Threeby"). The catch is the
+  same as the arrow keys — `osascript keystroke` and raw keycode CGEvents are ignored
+  by the field (no genuine key focus). What *does* land: a CGEvent keyboard event with
+  **`CGEventKeyboardSetUnicodeString`** — set the unicode string on the event and post
+  it to the HID tap, and the characters appear. So we navigate to the card (swipe until
+  a dark-panel probe fires), backspace the default, and type `Github halfrost`. Lesson:
+  when synthetic keycodes are ignored, try posting the **unicode string** directly.
+- **Detect "we left the game board", or the driver wanders the menus.** When the game
+  ends, the score-reveal / sign / settlement carousel reads (to a board parser) like a
+  plausible-ish drifted board, so the driver keeps "playing" and swipes itself deep
+  into the menus (looked like it hung on the name screen). Two robust "not a live
+  board" signals stop it: a **uniform dark panel** (four spread-out points all dark —
+  one point catches a tile's dark monster-mouth and false-fires) and a **whole-board
+  occupancy jump** (a real move changes 1–2 cells; a screen flip changes ~14).
 
 ## One-line lessons
 
