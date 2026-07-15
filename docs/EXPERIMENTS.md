@@ -383,12 +383,15 @@ mechanisms make it work:
   dark-panel probe fires), clears the default, and types `Github halfrost`. Earlier we
   wrongly concluded the name was an un-settable Game Center nickname — it is settable.
 - **Score-vs-replay caveat.** Games that stay short (max ≤192) track cleanly — the
-  recorded replay score matches the app's (e.g. **2,823** tracked ≈ 2,820). Games that
-  climb to 384/768 develop endgame *value* drift (a 768 read as 384; alt-escape
-  re-reads compound it), so the replay under-counts the real score (a **7,776** app
-  score recorded as 2,283). The settlement screenshot + signed name are always real;
-  a *perfect* high-score replay is the remaining CV limit. Signed settlement shots:
-  `results/replays/mac/settlement_{7776,30285}_signed.png` (gitignored).
+  recorded replay score matches the app's to within one spawn (best fully-clean signed
+  game: app **3,390** vs replay **3,381**, `occ_mis=0` all game — `results/replays/mac/
+  {settlement_3390_signed.png, replay_3390_clean.json}`). Games that climb to 384/768
+  develop endgame *value* drift (a 768 read as 384; alt-escape re-reads compound it),
+  so the replay under-counts the real score (a **7,776** app score recorded as 2,283 —
+  `settlement_7776_signed.png`). The settlement screenshot + signed name are always
+  real; a *perfect high-score* replay is the remaining CV limit. So: the auto-signed,
+  auto-captured, perfectly-replayed game is done end-to-end; pushing the *clean* score
+  higher is the open item (all gitignored artifacts under `results/replays/mac/`).
 
 Full blow-by-blow (every board-read method tried, the watchdog's evolution, and
 the four bugs it surfaced) is in [`WEB_SCORING_WARSTORIES.md`](WEB_SCORING_WARSTORIES.md)
