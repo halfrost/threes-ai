@@ -266,14 +266,33 @@ both deck-aware. Head-to-head (`results/ntsearch_summaries.jsonl`):
 - Best single game across all T3 runs: **860,298 (6144 tile)** — from the hand
   heuristic at d4 (`results/records/record_860298.json`).
 
-### T4 — big2 + temporal-coherence + α anneal, to break the T2 plateau — ready to run
-- `scripts/train_big2_tc.sh` → `models/ntuple_big2_tc.gob`. Three levers stacked
-  on T2: (a) **big2** tuple set — eight 6-cell shapes (~540 MB), ~2x the capacity
-  of big; (b) **temporal-coherence** (`train -tc`) — per-weight adaptive step
-  |N_i|/A_i that damps oscillating weights (~1.6 GB resident); (c) **α anneal**
-  (`-alpha-final`) — linear decay so the run settles instead of dithering at a
-  constant 0.1. Hypothesis: greedy asymptote clears the T2 ~21k ceiling; then
-  re-run T3 with this model as the leaf. (Results: TBD.)
+### T4 — big2 + temporal-coherence + α anneal — ★ done, and it REGRESSED
+`scripts/train_big2_tc.sh` → `models/ntuple_big2_tc.gob`, 15M games, big2 (eight
+6-cell shapes, ~540 MB) + `-tc` + α 0.1→0.01 (cloud box, machine 01,
+`results/cloud_t4/train_big2_tc.log`). Greedy (depth-0) asymptote:
+
+| games | 2.5M | 5M | 10M | 15M |
+|---|---|---|---|---|
+| mean | 6,080 | 7,472 | 9,053 | **9,608** |
+
+- **The three levers made it WORSE, not better.** T4 tops out ~9.6k greedy vs
+  **T2's ~21k** (big, constant α) — despite 2× the capacity, TC, anneal, and 15M vs
+  10M games. 3072/6144 stay 0% throughout; max only ~70k.
+- **No phase transition.** T2 jumped to ~21k around 4M games; T4 just climbs
+  smoothly and is *still rising* at 15M — i.e. either big2's 2× parameters are
+  badly under-trained at 15M, or TC/anneal changed the dynamics and suppressed the
+  jump. Can't attribute it from T4 alone → the ablations decide it:
+  - **T5** (big + TC + anneal, machine 02) isolates the TC+anneal levers vs T2.
+  - **T6** (big2 + constant α) isolates big2's capacity vs the levers.
+- **Not worth evaluating as a search leaf.** T2's stronger big model already lost
+  to the hand heuristic as an expectimax leaf (T3); a weaker greedy value won't beat
+  it, so skip the T3-style leaf eval for T4.
+
+### T6 — big2 + constant α (complete the 2×2) — ready to run
+`scripts/train_big2.sh` → `models/ntuple_big2.gob`, 15M games, big2, constant
+α=0.1 (T2's recipe with big2's capacity). Fourth cell of the design
+(big/big2 × const-α/TC+anneal); T4 vs T6 isolates whether TC+anneal hurt, T2 vs T6
+isolates whether big2 is just under-trained. Run on the now-free machine 01.
 
 _Planned later: DQN / PPO / AlphaZero-style baselines (Phase 3, needs a GPU box)._
 
