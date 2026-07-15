@@ -340,13 +340,44 @@ schema (plays in `web/replay.html`); `deploy/recorder.py` keeps only the best ga
 |------|--------|------------:|---------:|------:|-------------|
 | threesjs.io (Unity WebGL) | canvas colour+OCR, engine-in-the-loop | **9,993** | 384 | 431 | Github halfrost |
 | play.threesgame.com (WebGL) | localStorage slot.0 (exact board) | **23,634** | 768 | 407 | Github halfrost |
+| **native iOS Threes on Apple-Silicon Mac** | screen vision + engine-trust tracking, MOUSE-drag driven | **30,285** | **768** | ~230 | Game Center (`Github halfrost`†) |
 
-Both to a genuine game over ("Out of moves!"). For each we captured the site's own
+The two web sites went to a genuine game over ("Out of moves!"). For each we captured the site's own
 **score-settlement screen** — threesjs.io shows `Your score: 9,993` on its Unity
 game-over screen; play.threesgame.com flips every tile to its point value and
 tallies `23,634` (the WebGL buffer must be preserved to screenshot it non-black,
 and the reveal only arms on a live game over). Replays + these settlement
 screenshots under `results/replays/{threesjs,threesgame}/` (gitignored artifacts).
+
+The **native iOS Threes app running on an Apple-Silicon Mac** is the third target and
+the hardest — no DOM, no localStorage we could decode, an obfuscated + cfprefsd-cached
+save file, and a window that ignores synthetic input in surprising ways. Best game so
+far: **30,285, max tile 768** (`deploy/mac/driver.py`, moveserver depth-4 deck-aware),
+captured on the app's own game-over settlement screen (`results/replays/mac/
+settlement_30285.png`, gitignored). Clean start-to-finish replays at **7,701 / 384** and
+**10,482 / 768** (`results/replays/mac_{clean,final}/best.json`). Two hard-won
+mechanisms make it work:
+- **Drive by MOUSE-DRAG, not arrow keys.** The app accepts synthetic *arrow keys* only
+  while its window holds genuine keyboard first-responder — which a synthetic
+  app-launch or menu-click never grants, so keys silently stop registering after an
+  automated restart. But a synthetic **mouse drag** (a CGEvent with intermediate
+  `MouseDragged` points) is honoured regardless of focus. So the driver plays *and*
+  restarts entirely by mouse (drag to move; click `retry`/`PLAY THREES` to start over).
+- **Engine-trust, spawn-only board reading.** We never glyph-read the high tiles
+  (12/24/48/96/384 confuse a fixed-crop matcher, and 768 isn't even in the template
+  library so it reads as 384). Instead `apply_move` computes every existing tile's
+  value deterministically; the screen is read only to (a) confirm a move landed —
+  wait for two identical consecutive colour grids so we never catch a mid-animation
+  frame — and (b) place the single spawned tile, whose value is the `next` we
+  previewed (a 1/2/3 by colour). Occupancy drift triggers a resync that keeps the
+  engine's high-tile values and only re-reads low tiles from the screen. Result:
+  `occ_mis = 0` across a whole game. Game-over is decided the real way — a completely
+  full 16-tile board with no legal move — never by a failed input.
+
+† **Name is the Game Center nickname.** The native app submits scores to Game Center
+under the signed-in Apple ID; the leaderboard name is that account's nickname, which
+only the user can set (currently "Helen" on this Mac → change it to `Github halfrost`
+in the system Game Center settings). No automation can set it.
 
 Full blow-by-blow (every board-read method tried, the watchdog's evolution, and
 the four bugs it surfaced) is in [`WEB_SCORING_WARSTORIES.md`](WEB_SCORING_WARSTORIES.md)

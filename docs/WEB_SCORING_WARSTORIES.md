@@ -235,31 +235,56 @@ apps on Mac", `~/Library/Containers/vo.threes.exclaim`, the binary lives in a
   id from CoreGraphics `CGWindowListCopyWindowInfo`, permission-free) grabs the
   window's backing store even when it's partly off-screen. System Events' `size of
   window 1` returns a bogus height for these windows, so don't use it.
-- **Synthetic KEYBOARD works; synthetic MOUSE does not.** Arrow keys sent via
-  `osascript ... key code` move tiles. But *nothing* clicks the on-screen buttons:
-  `cliclick`, raw Quartz `CGEventPost`, `CGEventPostToPid`, and AX `AXPress` all
-  fail — the buttons aren't even in the accessibility tree (drawn on a Metal
-  surface). So the game-over **"retry" button is untappable by automation.**
-  (Verified the cursor was dead-on the button and the click still did nothing.)
-- **…so restart the game with the keyboard, not the mouse.** Kill the process →
-  `open -b` relaunches to the **start menu** → the **Return** key fires
-  "PLAY THREES" (Space does *not*; and an Escape beforehand breaks it). That's a
-  no-mouse full-auto loop: kill → relaunch → Return → play → game over → repeat.
-- **Off-screen windows silently eat clicks anyway.** Three displays with negative
-  origins meant the window sat mostly below the main display; even correct global
-  coords landed off-screen. `AXUIElement set position` (this one AX call *does*
-  work) moves it back on-screen.
-- **The board can't be read exactly — the ceiling.** Colour reads {empty, 1=blue,
-  2=red, white≥3} perfectly, but a **white tile's value (3 vs 6 vs 12…) is
-  unknowable from colour**, and tesseract misreads the handwritten font (a "3" as
-  "2"). Tracking high tiles with the engine from a fresh start drifts (≈11 bad
-  cells over 130 moves), which corrupts the recorded score and makes game-over fire
-  early. The exact board *is* in the app's plist (`Grid0..15`, like the web
-  slot.0) — but it's deliberately **obfuscated** (each cell a `(value,id)` string
-  like `"GU7"`, `"<IEJ:"`), and cfprefsd caches it, so per-move exact reads are out
-  without reversing the format. Net: the full-auto plumbing (restart, keyboard
-  play, replay recording, settlement screenshot) all works; a *strong, accurate*
-  Mac score is gated on exact board reading, which the obfuscated save blocks.
+- **The input twist: keyboard works — until it doesn't; mouse-*drag* always does.**
+  Our first read was "synthetic KEYBOARD works, synthetic MOUSE doesn't": arrow keys
+  via `osascript key code` moved tiles, while `cliclick` / `CGEventPost` /
+  `CGEventPostToPid` / AX `AXPress` never pressed a button. Both halves were half-true
+  and it cost hours. The full picture:
+  - The app honours synthetic **arrow keys only while its window holds *genuine*
+    keyboard first-responder.** The game we first drove had that because a human had
+    been playing it. The moment we restarted it ourselves (kill/relaunch, or a
+    synthetic menu click), the window came up frontmost but *not* key/first-responder
+    — and every arrow key, `osascript` **and** low-level `CGEventPost` to the HID tap
+    alike, silently did nothing. No amount of `set frontmost`, `AXRaise`, or clicking
+    the title bar restored it.
+  - A synthetic **single click** *is* honoured by the menu/game-over **buttons**
+    (`PLAY THREES`, `retry`) — the earlier "mouse doesn't work" was about in-game
+    swipes, not buttons.
+  - And a synthetic **mouse *drag*** — a `CGEvent` mouse-down, a series of
+    `LeftMouseDragged` points, mouse-up — registers as a board swipe **regardless of
+    focus.** That's the unlock: **drive the whole game by mouse.** Drag from the board
+    centre to move; click `retry`/`PLAY THREES` to restart. No keyboard, no relaunch,
+    fully hands-off. (The old kill→relaunch→Return loop is dead; a synthetic Return
+    never fires PLAY THREES once you're the one who launched the app.)
+- **Off-screen windows silently eat clicks.** Three displays with negative origins
+  put the window mostly below the main display; `AXUIElement set position` (the one AX
+  call that *does* work) moves it back so drag/click coordinates land.
+- **The board CAN be read exactly — the "ceiling" was wrong.** The earlier verdict
+  ("strong accurate Mac score is gated on exact reading, which the obfuscated plist
+  blocks") turned out to be beatable without touching the save file. Two ideas:
+  1. **Never glyph-read a high tile.** Colour gives {empty, 1, 2, white≥3} perfectly;
+     the *value* of a white tile is unknowable from colour and OCR misreads the
+     handwritten font — so don't ask. A merge's value is deterministic, so `apply_move`
+     already knows every high tile. Read the screen only to (a) confirm the move landed
+     and (b) place the single **spawned** tile, whose value is the `next` we previewed
+     (a 1/2/3 by colour). Engine owns the high tiles; the screen owns only the spawn.
+  2. **Read only *settled* frames.** Wait until two consecutive colour grids are
+     identical before trusting a read — a full board's long merge cascade otherwise
+     shows phantom tiles mid-animation (this exact bug cascaded one clean 180-move game
+     into garbage before we added the wait).
+  With those, `occ_mis` (engine-vs-screen occupancy disagreement) is **0 across a whole
+  game**, and the drivers reach a genuine game over — decided the real way, a full
+  16-tile board with no legal move, never by a failed input. Result: **30,285, tile
+  768.** The residual weakness is the deep endgame: a packed board can develop a
+  *value* drift the occupancy check can't see (a 768 read as 384 because the glyph
+  library tops out below it) — mitigated by a resync that keeps the engine's high-tile
+  values and only re-reads low tiles, but a truly packed high-tile board is the last CV
+  frontier here.
+- **The board false-ends if you trust a failed input.** Four dropped swipes ≠ game
+  over. In Threes the game is over *only* on a full 16-tile board with no mergeable
+  pair; with any empty cell a slide is always legal. Decide game-over by that rule on
+  the tracked board, and a stuck input becomes "re-read and retry", not a premature
+  settlement at 945 points.
 
 ## One-line lessons
 
@@ -276,3 +301,12 @@ apps on Mac", `~/Library/Containers/vo.threes.exclaim`, the binary lives in a
   mismatch** — diff your engine's legality against the game's acceptance to catch it.
 - WebGL screenshots need `preserveDrawingBuffer`; some end screens only respond to
   input **live**, not on reload.
+- On a Metal/iOS-on-Mac app that ignores synthetic input, **a mouse *drag* (with
+  intermediate `MouseDragged` points) beats keys** — keys need genuine first-responder
+  a synthetic launch never grants; a drag is honoured regardless of focus.
+- **Read only settled frames** (two identical consecutive reads) — a mid-animation
+  frame of a cascading board looks like phantom tiles and will cascade into garbage.
+- Don't OCR what you can *derive*: track high tiles with the engine's deterministic
+  merges and read the screen **only for the spawn**; a value you never read can't drift.
+- Game-over is a **property of the board** (full + no merge), never "N inputs did
+  nothing" — the latter false-ends the game a few moves early, or 200 moves early.
