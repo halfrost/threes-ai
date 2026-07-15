@@ -179,6 +179,7 @@ class MacThreesDevice:
         self.owner, self.region, self.move_delay, self.dbg = owner, region, move_delay, dbg
         self.desyncs = 0
         self.noops = 0          # consecutive non-registering moves (desync/wedge guard)
+        self.alt_moves = 0      # times the "stuck direction -> switch" escape fired
         self.over = False
         self.tmpl = TileTemplates()
         self._activate()
@@ -195,17 +196,32 @@ class MacThreesDevice:
         return find_window(self.owner)
 
     def _capture_png_bytes(self):
-        wid, x, y, w, h = self._win()
-        fd, path = __import__("tempfile").mkstemp(suffix=".png")
-        os.close(fd)
-        if wid is not None:
-            subprocess.run(["screencapture", "-x", "-o", "-l", str(wid), path], check=True)
-        else:
-            subprocess.run(["screencapture", "-x", "-o", "-R", f"{x},{y},{w},{h}", path], check=True)
-        with open(path, "rb") as f:
-            data = f.read()
-        os.remove(path)
-        return data
+        # screencapture -l occasionally fails ("could not create image from window")
+        # when the window id is momentarily stale (space switch, app relaunch, another
+        # app raising over it). Re-resolve the window id and retry a few times rather
+        # than crashing the whole run on a transient.
+        last = None
+        for attempt in range(5):
+            try:
+                wid, x, y, w, h = self._win()
+                fd, path = __import__("tempfile").mkstemp(suffix=".png")
+                os.close(fd)
+                if wid is not None:
+                    subprocess.run(["screencapture", "-x", "-o", "-l", str(wid), path],
+                                   check=True, capture_output=True)
+                else:
+                    subprocess.run(["screencapture", "-x", "-o", "-R", f"{x},{y},{w},{h}", path],
+                                   check=True, capture_output=True)
+                with open(path, "rb") as f:
+                    data = f.read()
+                os.remove(path)
+                if data:
+                    return data
+            except Exception as e:                            # noqa: BLE001
+                last = e
+                self._activate()                              # nudge the window back up
+                time.sleep(0.4)
+        raise RuntimeError(f"screencapture failed after retries: {last}")
 
     def _capture_np(self):
         import numpy as np
@@ -263,6 +279,12 @@ class MacThreesDevice:
         first-responder (which a synthetic app-launch/menu-click never grants), but it
         honours a synthetic mouse drag regardless of focus. 0=UP 1=DOWN 2=LEFT 3=RIGHT."""
         import Quartz
+        # Bring Threes to the front FIRST. A mouse drag lands on whatever window is
+        # topmost at those screen coords, so if a background app (chat, notification)
+        # pops over the game, the drag hits IT and the game silently stops advancing.
+        # Raising Threes before each drag keeps the board under the cursor.
+        self._activate()
+        time.sleep(0.05)
         cx, cy = self._screen_xy(X0 + 1.5 * DX, Y0 + 1.5 * DY)     # board centre
         d = 150
         vx, vy = {0: (0, -d), 1: (0, d), 2: (-d, 0), 3: (d, 0)}[move]
@@ -347,6 +369,11 @@ class MacThreesDevice:
         # its value is exactly the `next` we previewed BEFORE the move (always a
         # 1/2/3, colour-coded — or a bonus, handled below). So: engine board + read
         # the screen only to place that one spawn and confirm the move.
+        # Already on the game-over 'signed by' card? Then the game ended and further
+        # swipes would just wander the high-score carousel (the "stuck signing" bug).
+        if self._is_sign_screen():
+            self.over = True
+            return
         _, pre = self._stable_np()           # settled colour grid BEFORE the move
         nv = self.next                       # previewed next = the tile that spawns now
         npim, shape, registered = None, pre, False
@@ -358,21 +385,52 @@ class MacThreesDevice:
                 registered = True
                 break
         if not registered:
-            # The swipe didn't change the screen. Re-read the true board off the
-            # settled frame, then decide game-over by the REAL rule: in Threes a game
-            # is over ONLY when the board is completely FULL (16 tiles) with no
-            # mergeable pair. With ANY empty cell a slide is always legal, so a no-op
-            # there is a read/move glitch to recover from (re-sync + let the next loop
-            # re-ask), NOT a dead game — the endgame false-over that used to stop us a
-            # few moves short of the real settlement screen. noops>=30 is a wedge
-            # backstop only (mouse swipes are reliable, so this rarely bites).
-            fresh, fshape = self._stable_np()
-            self.board = self._resync(fshape, self.board)      # occupancy only, keep high vals
-            self.next = read_next(fresh) or self.next
-            filled = sum(1 for r in range(4) for c in range(4) if self.board[r][c] > 0)
-            self.noops += 1
-            if (filled == 16 and not self._legal()) or self.noops >= 30:
+            # The requested direction didn't move the screen after 4 tries. The usual
+            # cause is a mis-tracked board: the moveserver picked a direction that is
+            # legal on our (drifted) board but a NO-OP in the real game — and since our
+            # board doesn't change, it would keep picking that same dead direction
+            # forever (the "kept swiping right, nothing moved" the user saw). ESCAPE by
+            # trying the OTHER directions; whichever actually moves the board wins.
+            # Then do a FULL screen re-read to recover the true board from the drift, so
+            # the next move is chosen correctly. Only if NO direction moves the board is
+            # it a real game over (a full 16-tile board with no mergeable pair).
+            escaped = False
+            for alt in (1, 0, 2, 3):                 # try D, U, L, R
+                if alt == move:
+                    continue
+                self._drag_swipe(alt)
+                time.sleep(self.move_delay)
+                npim, shape = self._stable_np()
+                if shape != pre:
+                    self.alt_moves += 1
+                    escaped = True
+                    break
+            if not escaped:
+                # nothing moved the board -> real game over iff full + no legal move
+                fresh, fshape = self._stable_np()
+                self.board = self._resync(fshape, self.board)
+                self.next = read_next(fresh) or self.next
+                filled = sum(1 for r in range(4) for c in range(4) if self.board[r][c] > 0)
+                self.noops += 1
+                if (filled == 16 and not self._legal()) or self.noops >= 30:
+                    self.over = True
+                return
+            # If the "alternate direction" actually flipped us onto the game-over sign
+            # card (not a board move), the game is over — stop instead of wandering.
+            if self._is_sign_screen():
                 self.over = True
+                return
+            # an alternate direction moved the board: our tracked board was clearly
+            # drifted (that's why the requested move no-op'd), so re-establish it with a
+            # full glyph read of the settled frame instead of trusting apply_move.
+            self.board, _ = self._exact_board(npim)
+            self.next = read_next(npim) or self.next
+            self.noops = 0
+            if self.dbg:
+                mx = max(max(r) for r in self.board)
+                print(f"    [dbg] ALT-ESCAPE req={move}->drifted; switched direction & "
+                      f"re-read board, maxtile={VALUE[mx] if mx in VALUE else mx}",
+                      file=sys.stderr, flush=True)
             return
         # Engine slide/merge of the existing tiles (exact), then place the one spawn.
         nb, changed, moved = apply_move(self.board, move)
@@ -399,6 +457,14 @@ class MacThreesDevice:
         # read so a single miss can't cascade (the failure mode that ate game 3).
         occ = sum(1 for r in range(4) for c in range(4)
                   if (nb[r][c] > 0) != (shape[r][c] in (1, 2, 3)))
+        # A real move changes ~1-2 cells (spawn ± a freed merge cell). A near-whole-
+        # board mismatch means we're no longer looking at the game board — the game
+        # ended and the swipe flipped to the score-reveal / carousel. Stop; the caller
+        # (submit_name) handles the sign card. This is the real game-over signal that
+        # keeps the driver from wandering the post-game screens.
+        if occ >= 8 or self._is_sign_screen():
+            self.over = True
+            return
         if len(spawns) != 1 or occ:
             nb = self._resync(shape, nb)                 # occupancy only, keep high vals
             occ = sum(1 for r in range(4) for c in range(4)
@@ -412,9 +478,64 @@ class MacThreesDevice:
             print(f"    [dbg] move={move} nv={nv} spawn={len(spawns)} resync={'Y' if (len(spawns)!=1 or occ) else 'n'} "
                   f"occ_mis={occ} maxtile={VALUE[mx] if mx in VALUE else mx}", file=sys.stderr, flush=True)
 
+    _SIGN_PTS = [(1000, 1000), (760, 1350), (1240, 1350), (1000, 1480)]
+
+    def _is_sign_screen(self):
+        """The game-over 'signed by' name-entry card is a big UNIFORM dark panel. A
+        single pixel is unreliable — a tile's dark 'monster mouth' can be that dark on a
+        live board (this false-ended a game at move 27). So require FOUR spread-out
+        points (which map to different board cells) to all be dark: only the panel is
+        dark everywhere at once."""
+        try:
+            im = self._capture_np()
+            for x, y in self._SIGN_PTS:
+                r, g, b = im[y, x]
+                if not (r < 95 and g < 95 and b < 105):
+                    return False
+            return True
+        except Exception:                                # noqa: BLE001
+            return False
+
     def submit_name(self, name):
-        print(f"submit_name: Threes submits to Game Center under the signed-in Apple ID "
-              f"(set the nickname to '{name}')", flush=True)
+        """Sign the leaderboard name IN-APP. Threes shows a 'SWIPE & SIGN YOUR NAME'
+        card at game over with a text field (default 'Threeby'). Two things make it
+        work: (1) navigate to that card by swiping until the dark-panel detector fires;
+        (2) TYPE via CGEvent + CGEventKeyboardSetUnicodeString — plain `osascript
+        keystroke`/keycodes are ignored by this app's field (no genuine key focus), but
+        a unicode-string keyboard event on the HID tap lands. Clears the default first."""
+        import Quartz
+        for _ in range(14):                              # swipe to the sign card
+            if self._is_sign_screen():
+                break
+            self._drag_swipe(2)                          # LEFT
+            time.sleep(0.8)
+        if not self._is_sign_screen():
+            print("submit_name: could not reach the sign-your-name card", flush=True)
+            return False
+        self._activate()
+        time.sleep(0.4)
+
+        def cg_key(kc):                                  # a real keycode (for backspace)
+            for down in (True, False):
+                e = Quartz.CGEventCreateKeyboardEvent(None, kc, down)
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, e)
+                time.sleep(0.02)
+
+        def cg_char(ch):                                 # arbitrary character via unicode
+            for down in (True, False):
+                e = Quartz.CGEventCreateKeyboardEvent(None, 0, down)
+                Quartz.CGEventKeyboardSetUnicodeString(e, len(ch), ch)
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, e)
+                time.sleep(0.03)
+
+        for _ in range(16):                              # clear the default 'Threeby'
+            cg_key(51)                                   # 51 = delete/backspace
+        time.sleep(0.2)
+        for ch in name:
+            cg_char(ch)
+        time.sleep(0.4)
+        print(f"submit_name: signed '{name}' in-app via CGEvent unicode", flush=True)
+        return True
 
     def _seed(self):
         npim, _ = self._stable_np()                 # settled frame, so the seed is exact
@@ -521,10 +642,18 @@ def main():
             dev.tmpl.save()             # persist glyphs learned this game (grows across runs)
             print("final tracked board:", [[VALUE[i] for i in row] for row in dev.board],
                   flush=True)
-            time.sleep(1.5)                      # let the game-over screen render
+            time.sleep(1.8)                      # let the score-reveal card render
+            # Sign the leaderboard name in-app (navigate to the sign card + type it),
+            # THEN screenshot so the settlement shot shows our name, not the default.
+            if a.player_name:
+                try:
+                    dev.submit_name(a.player_name)
+                    time.sleep(0.8)
+                except Exception as e:           # noqa: BLE001
+                    print(f"submit_name failed: {e}", flush=True)
             shot = None
             try:
-                shot = dev.screenshot_png()      # the real settlement screen
+                shot = dev.screenshot_png()      # the real settlement screen, now signed
             except Exception:                    # noqa: BLE001
                 shot = None
             msg = (f"game {g+1}/{a.games}: {moves} moves, max {best_tile}, "
