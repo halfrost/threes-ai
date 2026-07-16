@@ -534,8 +534,16 @@ class MacThreesDevice:
         for ch in name:
             cg_char(ch)
         time.sleep(0.4)
-        print(f"submit_name: signed '{name}' in-app via CGEvent unicode", flush=True)
-        return True
+        # COMMIT the name — typing alone leaves it in the edit field (cursor still
+        # blinking, not saved). RETURN confirms it: the edit card flips to the final
+        # settlement card that shows the signed name (orange, no cursor) with the
+        # retry/gamecenter/share buttons. Without this the name never actually posts.
+        cg_key(36)                                       # 36 = Return -> submit
+        time.sleep(1.2)
+        committed = not self._is_sign_screen()
+        print(f"submit_name: typed '{name}' and pressed Return -> "
+              f"{'committed' if committed else 'STILL on edit card (?)'}", flush=True)
+        return committed
 
     def _seed(self):
         npim, _ = self._stable_np()                 # settled frame, so the seed is exact
