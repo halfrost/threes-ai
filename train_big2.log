@@ -1,0 +1,38 @@
+nohup: ignoring input
+Building train...
+Training big2, CONSTANT alpha=0.1, 15000000 games -> models/ntuple_big2.gob
+Training 15000000 games, alpha 0.100->0.100, 8 tuples, eval seeds 1..1000 (train seeds from 10000000)
+[       0 games |     0s] eval(N=1000): mean=     627 median=    468 max=    3627 | 3072= 0.0% 6144= 0.0%
+[  500000 games |   602s] eval(N=1000): mean=    3977 median=   3195 max=   23712 | 3072= 0.0% 6144= 0.0%
+[ 1000000 games |  1379s] eval(N=1000): mean=    4998 median=   3312 max=   28173 | 3072= 0.0% 6144= 0.0%
+[ 1500000 games |  2243s] eval(N=1000): mean=    6212 median=   3615 max=   27441 | 3072= 0.0% 6144= 0.0%
+[ 2000000 games |  3169s] eval(N=1000): mean=    6862 median=   6750 max=   29772 | 3072= 0.0% 6144= 0.0%
+[ 2500000 games |  4139s] eval(N=1000): mean=    7107 median=   7032 max=   29541 | 3072= 0.0% 6144= 0.0%
+[ 3000000 games |  5147s] eval(N=1000): mean=    8078 median=   7521 max=   68355 | 3072= 0.0% 6144= 0.0%
+[ 3500000 games |  6202s] eval(N=1000): mean=    8817 median=   7683 max=   31011 | 3072= 0.0% 6144= 0.0%
+[ 4000000 games |  7299s] eval(N=1000): mean=    9261 median=   7749 max=   62355 | 3072= 0.0% 6144= 0.0%
+[ 4500000 games |  8423s] eval(N=1000): mean=   10482 median=   8400 max=   62250 | 3072= 0.0% 6144= 0.0%
+[ 5000000 games |  9567s] eval(N=1000): mean=   10710 median=   8868 max=   65643 | 3072= 0.0% 6144= 0.0%
+[ 5500000 games | 10724s] eval(N=1000): mean=   10671 median=   8385 max=   68613 | 3072= 0.0% 6144= 0.0%
+[ 6000000 games | 11875s] eval(N=1000): mean=   11165 median=   8970 max=   69789 | 3072= 0.0% 6144= 0.0%
+[ 6500000 games | 13057s] eval(N=1000): mean=   10971 median=   8946 max=   67959 | 3072= 0.0% 6144= 0.0%
+[ 7000000 games | 14297s] eval(N=1000): mean=   11328 median=   9135 max=   68244 | 3072= 0.0% 6144= 0.0%
+[ 7500000 games | 15596s] eval(N=1000): mean=   11072 median=   9021 max=   81786 | 3072= 0.0% 6144= 0.0%
+[ 8000000 games | 16910s] eval(N=1000): mean=   11946 median=   9309 max=   69555 | 3072= 0.0% 6144= 0.0%
+[ 8500000 games | 18246s] eval(N=1000): mean=   11948 median=   9399 max=   68151 | 3072= 0.0% 6144= 0.0%
+[ 9000000 games | 19598s] eval(N=1000): mean=   12268 median=   9345 max=   70404 | 3072= 0.0% 6144= 0.0%
+[ 9500000 games | 21010s] eval(N=1000): mean=   13086 median=   9387 max=   67941 | 3072= 0.0% 6144= 0.0%
+[10000000 games | 22460s] eval(N=1000): mean=   13773 median=   9642 max=   79881 | 3072= 0.0% 6144= 0.0%
+[10500000 games | 23923s] eval(N=1000): mean=   13479 median=   9603 max=   70167 | 3072= 0.0% 6144= 0.0%
+[11000000 games | 25412s] eval(N=1000): mean=   13544 median=   9471 max=   68073 | 3072= 0.0% 6144= 0.0%
+[11500000 games | 26961s] eval(N=1000): mean=   14033 median=   9765 max=   69384 | 3072= 0.0% 6144= 0.0%
+[12000000 games | 28628s] eval(N=1000): mean=   14752 median=   9861 max=   79953 | 3072= 0.0% 6144= 0.0%
+[12500000 games | 30321s] eval(N=1000): mean=   15380 median=   9876 max=   71109 | 3072= 0.0% 6144= 0.0%
+[13000000 games | 32024s] eval(N=1000): mean=   15109 median=   9855 max=   87093 | 3072= 0.0% 6144= 0.0%
+[13500000 games | 33755s] eval(N=1000): mean=   15056 median=   9858 max=   73290 | 3072= 0.0% 6144= 0.0%
+[14000000 games | 35503s] eval(N=1000): mean=   15786 median=   9903 max=   81789 | 3072= 0.0% 6144= 0.0%
+[14500000 games | 37255s] eval(N=1000): mean=   16337 median=   9915 max=   72309 | 3072= 0.0% 6144= 0.0%
+[15000000 games | 38875s] eval(N=1000): mean=   16506 median=  10011 max=   88551 | 3072= 0.0% 6144= 0.0%
+Done in 38885s. Network saved to models/ntuple_big2.gob
+Done. Compare greedy asymptote to T2 (big,const ~21k) and T4 (big2,TC+anneal ~9.6k):
+  python3 scripts/learning_curve.py train_big2.log
