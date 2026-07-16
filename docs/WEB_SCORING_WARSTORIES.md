@@ -229,7 +229,9 @@ change. Notes/gotchas:
 
 The official **paid Threes** runs natively on Apple-Silicon Macs ("iPhone/iPad
 apps on Mac", `~/Library/Containers/vo.threes.exclaim`, the binary lives in a
-`.../Wrapper/Threes.app`). `deploy/mac/driver.py` drives it. A pile of surprises:
+`.../Wrapper/Threes.app`). `deploy/mac/driver.py` drives it. A pile of surprises
+(the *detailed* chronological debugging journal — symptoms, wrong guesses, dead ends,
+fixes — is in [`MAC_DEBUGGING_LOG.md`](MAC_DEBUGGING_LOG.md); highlights below):
 
 - **Capture: screenshot the window by ID.** `screencapture -l<windowID>` (window
   id from CoreGraphics `CGWindowListCopyWindowInfo`, permission-free) grabs the
