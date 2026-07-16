@@ -292,8 +292,12 @@ apps on Mac", `~/Library/Containers/vo.threes.exclaim`, the binary lives in a
   by the field (no genuine key focus). What *does* land: a CGEvent keyboard event with
   **`CGEventKeyboardSetUnicodeString`** — set the unicode string on the event and post
   it to the HID tap, and the characters appear. So we navigate to the card (swipe until
-  a dark-panel probe fires), backspace the default, and type `Github halfrost`. Lesson:
-  when synthetic keycodes are ignored, try posting the **unicode string** directly.
+  a dark-panel probe fires), backspace the default, type `Github halfrost`, **and press
+  Return (CGEvent) to COMMIT** — typing alone leaves the name blinking in the edit box
+  and never posts (the bug the user caught: "you typed it but didn't submit it"); Return
+  flips the edit card to the final settlement card with the name in orange and the
+  score. Lesson: when synthetic keycodes are ignored, post the **unicode string**
+  directly — and remember the field still needs its **commit** keystroke.
 - **Detect "we left the game board", or the driver wanders the menus.** When the game
   ends, the score-reveal / sign / settlement carousel reads (to a board parser) like a
   plausible-ish drifted board, so the driver keeps "playing" and swipes itself deep

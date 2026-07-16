@@ -380,8 +380,12 @@ mechanisms make it work:
   keycodes are ignored (same no-genuine-focus wall as the arrow keys), but a
   **CGEvent keyboard event with `CGEventKeyboardSetUnicodeString`** on the HID tap DOES
   land in the field. So the driver navigates to the sign card (swipe until a 4-point
-  dark-panel probe fires), clears the default, and types `Github halfrost`. Earlier we
-  wrongly concluded the name was an un-settable Game Center nickname — it is settable.
+  dark-panel probe fires), clears the default, types `Github halfrost`, **and presses
+  Return (CGEvent) to COMMIT** — typing alone leaves the name blinking in the edit box,
+  unsaved; Return flips it to the final settlement card (name in orange, no cursor,
+  with retry/gamecenter/share). Earlier we wrongly concluded the name was an un-settable
+  Game Center nickname — it is settable. Best signed+committed game: app **9,117**
+  (`settlement_9117_signed.png`), name posted "Github halfrost".
 - **Score-vs-replay caveat.** Games that stay short (max ≤192) track cleanly — the
   recorded replay score matches the app's to within one spawn (best fully-clean signed
   game: app **3,390** vs replay **3,381**, `occ_mis=0` all game — `results/replays/mac/
