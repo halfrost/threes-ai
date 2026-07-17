@@ -1,0 +1,45 @@
+nohup: ignoring input
+Resumed network from models/ntuple_big.gob (4 tuples)
+Training 20000000 games, alpha 0.100->0.100, 4 tuples, eval seeds 1..1000 (train seeds from 20000000)
+[       0 games |     0s] eval(N=1000): mean=   20968 median=  21507 max=   88086 | 3072= 0.0% 6144= 0.0%
+[  500000 games |  1015s] eval(N=1000): mean=   21063 median=  21351 max=   86688 | 3072= 0.0% 6144= 0.0%
+[ 1000000 games |  2032s] eval(N=1000): mean=   22156 median=  21873 max=   88989 | 3072= 0.0% 6144= 0.0%
+[ 1500000 games |  3041s] eval(N=1000): mean=   21067 median=  21255 max=   84798 | 3072= 0.0% 6144= 0.0%
+[ 2000000 games |  4052s] eval(N=1000): mean=   21782 median=  22329 max=   85860 | 3072= 0.0% 6144= 0.0%
+[ 2500000 games |  5068s] eval(N=1000): mean=   22221 median=  21810 max=   85608 | 3072= 0.0% 6144= 0.0%
+[ 3000000 games |  6073s] eval(N=1000): mean=   21007 median=  21621 max=   89232 | 3072= 0.0% 6144= 0.0%
+[ 3500000 games |  7089s] eval(N=1000): mean=   21860 median=  22119 max=   82023 | 3072= 0.0% 6144= 0.0%
+[ 4000000 games |  8115s] eval(N=1000): mean=   22369 median=  22272 max=   84234 | 3072= 0.0% 6144= 0.0%
+[ 4500000 games |  9157s] eval(N=1000): mean=   22450 median=  22089 max=   88368 | 3072= 0.0% 6144= 0.0%
+[ 5000000 games | 10159s] eval(N=1000): mean=   21773 median=  21534 max=   87093 | 3072= 0.0% 6144= 0.0%
+[ 5500000 games | 11181s] eval(N=1000): mean=   22812 median=  21609 max=   82824 | 3072= 0.0% 6144= 0.0%
+[ 6000000 games | 12204s] eval(N=1000): mean=   22435 median=  21633 max=   88422 | 3072= 0.0% 6144= 0.0%
+[ 6500000 games | 13232s] eval(N=1000): mean=   23140 median=  22248 max=   89229 | 3072= 0.0% 6144= 0.0%
+[ 7000000 games | 14260s] eval(N=1000): mean=   22223 median=  22359 max=   87936 | 3072= 0.0% 6144= 0.0%
+[ 7500000 games | 15297s] eval(N=1000): mean=   22071 median=  22281 max=   73386 | 3072= 0.0% 6144= 0.0%
+[ 8000000 games | 16346s] eval(N=1000): mean=   22428 median=  22233 max=   87879 | 3072= 0.0% 6144= 0.0%
+[ 8500000 games | 17394s] eval(N=1000): mean=   23262 median=  22272 max=   90450 | 3072= 0.0% 6144= 0.0%
+[ 9000000 games | 18432s] eval(N=1000): mean=   22154 median=  21747 max=   88074 | 3072= 0.0% 6144= 0.0%
+[ 9500000 games | 19478s] eval(N=1000): mean=   22868 median=  21786 max=  178353 | 3072= 0.1% 6144= 0.0%
+[10000000 games | 20519s] eval(N=1000): mean=   23234 median=  22683 max=   87585 | 3072= 0.0% 6144= 0.0%
+[10500000 games | 21572s] eval(N=1000): mean=   24788 median=  22968 max=   89766 | 3072= 0.0% 6144= 0.0%
+[11000000 games | 22634s] eval(N=1000): mean=   23738 median=  22647 max=   88563 | 3072= 0.0% 6144= 0.0%
+[11500000 games | 23688s] eval(N=1000): mean=   22562 median=  21600 max=   85632 | 3072= 0.0% 6144= 0.0%
+[12000000 games | 24745s] eval(N=1000): mean=   21637 median=  21627 max=   88719 | 3072= 0.0% 6144= 0.0%
+[12500000 games | 25805s] eval(N=1000): mean=   23602 median=  22779 max=   86400 | 3072= 0.0% 6144= 0.0%
+[13000000 games | 26856s] eval(N=1000): mean=   24146 median=  22647 max=   88578 | 3072= 0.0% 6144= 0.0%
+[13500000 games | 27916s] eval(N=1000): mean=   23616 median=  22515 max=   82299 | 3072= 0.0% 6144= 0.0%
+[14000000 games | 28977s] eval(N=1000): mean=   23078 median=  22401 max=   87591 | 3072= 0.0% 6144= 0.0%
+[14500000 games | 30024s] eval(N=1000): mean=   23566 median=  22050 max=   84159 | 3072= 0.0% 6144= 0.0%
+[15000000 games | 31067s] eval(N=1000): mean=   24061 median=  22986 max=   90498 | 3072= 0.0% 6144= 0.0%
+[15500000 games | 32105s] eval(N=1000): mean=   23563 median=  22704 max=   88350 | 3072= 0.0% 6144= 0.0%
+[16000000 games | 33158s] eval(N=1000): mean=   23615 median=  22779 max=  101571 | 3072= 0.0% 6144= 0.0%
+[16500000 games | 34207s] eval(N=1000): mean=   23958 median=  22419 max=   85596 | 3072= 0.0% 6144= 0.0%
+[17000000 games | 35259s] eval(N=1000): mean=   23949 median=  22239 max=   85455 | 3072= 0.0% 6144= 0.0%
+[17500000 games | 36331s] eval(N=1000): mean=   24291 median=  22305 max=   85704 | 3072= 0.0% 6144= 0.0%
+[18000000 games | 37384s] eval(N=1000): mean=   23684 median=  22872 max=   80079 | 3072= 0.0% 6144= 0.0%
+[18500000 games | 38446s] eval(N=1000): mean=   23878 median=  22908 max=   86475 | 3072= 0.0% 6144= 0.0%
+[19000000 games | 39521s] eval(N=1000): mean=   22810 median=  22266 max=   88512 | 3072= 0.0% 6144= 0.0%
+[19500000 games | 40595s] eval(N=1000): mean=   23409 median=  22293 max=   85536 | 3072= 0.0% 6144= 0.0%
+[20000000 games | 41668s] eval(N=1000): mean=   23507 median=  22806 max=   88347 | 3072= 0.0% 6144= 0.0%
+Done in 41674s. Network saved to models/ntuple_big.gob
