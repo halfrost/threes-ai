@@ -1,0 +1,25 @@
+nohup: ignoring input
+Building train...
+Base: models/ntuple_big.gob = 72702310 bytes -> T7 30M (mean 23,507)
+Leaf-aligned fine-tune: resume models/ntuple_big.gob, big, alpha=0.03, search-depth=1, 1500000 games -> models/ntuple_big_leaf.gob
+Resumed network from models/ntuple_big.gob (4 tuples)
+Training 1500000 games, alpha 0.030->0.030, search-depth=1 (leaf-aligned), 4 tuples, eval seeds 1..1000 (train seeds from 90000000)
+[       0 games |     0s] eval(N=1000): mean=   23507 median=  22806 max=   88347 | 3072= 0.0% 6144= 0.0%
+[  100000 games |  7134s] eval(N=1000): mean=    8478 median=   3708 max=   69603 | 3072= 0.0% 6144= 0.0%
+[  200000 games | 13935s] eval(N=1000): mean=    5974 median=   2478 max=   79305 | 3072= 0.0% 6144= 0.0%
+[  300000 games | 20683s] eval(N=1000): mean=    4855 median=   1482 max=   68022 | 3072= 0.0% 6144= 0.0%
+[  400000 games | 27450s] eval(N=1000): mean=    4730 median=   1539 max=   61773 | 3072= 0.0% 6144= 0.0%
+[  500000 games | 34441s] eval(N=1000): mean=    4048 median=   1377 max=   64377 | 3072= 0.0% 6144= 0.0%
+[  600000 games | 41329s] eval(N=1000): mean=    3900 median=   1368 max=   66009 | 3072= 0.0% 6144= 0.0%
+[  700000 games | 48007s] eval(N=1000): mean=    3776 median=   1221 max=   65976 | 3072= 0.0% 6144= 0.0%
+[  800000 games | 54698s] eval(N=1000): mean=    3548 median=   1143 max=   66690 | 3072= 0.0% 6144= 0.0%
+[  900000 games | 61267s] eval(N=1000): mean=    3150 median=   1125 max=   30165 | 3072= 0.0% 6144= 0.0%
+[ 1000000 games | 69305s] eval(N=1000): mean=    3605 median=   1230 max=   70725 | 3072= 0.0% 6144= 0.0%
+[ 1100000 games | 96693s] eval(N=1000): mean=    3152 median=   1239 max=   33675 | 3072= 0.0% 6144= 0.0%
+[ 1200000 games | 123294s] eval(N=1000): mean=    3322 median=   1284 max=   62094 | 3072= 0.0% 6144= 0.0%
+[ 1300000 games | 138955s] eval(N=1000): mean=    3021 median=   1191 max=   62316 | 3072= 0.0% 6144= 0.0%
+[ 1400000 games | 147417s] eval(N=1000): mean=    3251 median=   1194 max=   66429 | 3072= 0.0% 6144= 0.0%
+[ 1500000 games | 155056s] eval(N=1000): mean=    3263 median=   1143 max=   66738 | 3072= 0.0% 6144= 0.0%
+Done in 155062s. Network saved to models/ntuple_big_leaf.gob
+Done. Decide it as a LEAF (the whole point) vs the hand heuristic:
+  bash scripts/eval_ntuple_search.sh models/ntuple_big_leaf.gob $(nproc) "2 3 4 5"
