@@ -54,14 +54,22 @@ mkdir -p results/records
 C="-bb -seqsearch -workers $W -deckaware -n $N -seed 1 -record results/records -log results/ms_search_summaries.jsonl"
 run() { echo; echo "=== bench $* ==="; ./bin/bench $C "$@"; }
 
+# COST NOTE (measured, T3, same box): the N-tuple leaf is ~10x slower than the hand
+# heuristic — d3 ~42min, d4 ~5h, d5 ~21h per 1000-game run. So by default we run ONLY the
+# new candidate (ms-search) + the cheap hand-heuristic bar (d5 ~2h), and SKIP re-running the
+# single-net leaf (another ~21h at d5) — T3 already recorded it and this is a redundant
+# ~10x-cost run. Set WITH_SINGLE=1 to add it back for a head-to-head on identical seeds.
+WITH_SINGLE="${WITH_SINGLE:-0}"
 for d in $DEPTHS; do
-  # candidate: multi-stage leaf
+  # candidate: multi-stage leaf (the whole point of T11)
   run -agent ntuple-ms-search -models "$MODELS" -stages "$STAGES" -depthcap "$d" \
       -label "ms-search-d$d" -out "results/ms_search_d$d.jsonl"
-  # T3's single-net leaf, identical seeds
-  [ -f "$SINGLE" ] && run -agent ntuple-search -model "$SINGLE" -depthcap "$d" \
-      -label "single-leaf-d$d" -out "results/single_leaf_d$d.jsonl"
-  # hand heuristic leaf, identical seeds — the bar
+  # single-net leaf (T3's), identical seeds — OFF by default (expensive, already recorded)
+  if [ "$WITH_SINGLE" = 1 ] && [ -f "$SINGLE" ]; then
+    run -agent ntuple-search -model "$SINGLE" -depthcap "$d" \
+        -label "single-leaf-d$d" -out "results/single_leaf_d$d.jsonl"
+  fi
+  # hand heuristic leaf, identical seeds — the bar to beat (cheap: ~10x faster)
   run -agent expectimax -depthcap "$d" \
       -label "expectimax-d$d" -out "results/expectimax_ms_d$d.jsonl"
 done
