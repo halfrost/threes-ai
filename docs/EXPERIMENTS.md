@@ -454,7 +454,7 @@ A single net tops out at **~23–24k greedy, 0.0% at 3072**, and cannot beat the
 leaf. This is a clean, convergent negative result and it points at exactly one structural
 change left.
 
-### ★ T10 — multi-staging — BUILT and validated; two variants running
+### ★ T10 — multi-staging — DONE. Broke the plateau (23.5k → 28k, +19%); endgame still uncracked.
 The 2016 MS-TD paper reaches the 6144 in **7.83%** with a *learned* agent (vs 0.45% for a
 plain net); our single net is at **0.0%**. Their "**MS**" is literally *multi-stage*:
 **separate value functions per game phase**. A board's value changes character once big tiles
@@ -477,12 +477,33 @@ baselines still run):
   scratch) and greedy mean rose **21.2k → 23.0k immediately** — the split is already helping and
   the mechanics are correct. Seeds from 100M (disjoint from T1–T9).
 
-**Two variants in flight** (the free 01/02 boxes) to answer the key question — does the endgame
-stage need its *own* data, or does lower-stage specialisation alone lift play into it?
-- **`-stages 10,13`** (top stage `≥3072`): cleanest split, but that stage starts starved (even
-  T7 is 0% at 3072); the bet is that specialised stages 0/1 push play up until it fills.
-- **`-stages 10,12`** (top stage `≥1536`): the top stage gets data from the start, at the cost
-  of lumping 3072+ in with 1536.
+**RESULTS — DONE (both variants, 20M games each, ~11–14 h).** Logs:
+`docs/runs/train_ms_t10_s10{12,13}.log`.
+
+| variant | stages | final mean (20M) | peak | median | 3072 | top-stage `touched` |
+|---|---|---|---|---|---|---|
+| A `10,12` | ≤192 \| 384–768 \| **≥1536** | **28,011** | 28,388 (14M) | 23,145 | ~0.1% | 363M (well-fed) |
+| B `10,13` | ≤192 \| 384–1536 \| **≥3072** | **28,009** | 28,009 (20M) | 23,538 | ~0.1% | **82k (starved)** |
+
+- **★ Multi-staging is the FIRST lever to break the single-net plateau: 23,507 → ~28,000
+  (+19%).** More games (T7), more capacity (T8), leaf-align (T9) all failed to move it; splitting
+  the value function by phase moved it immediately and monotonically. The MS hypothesis holds —
+  one net really was averaging over irreconcilable regimes.
+- **But the gain is upper-tail, not endgame.** Median barely moved (22,806 → ~23,300, +2%) while
+  the mean jumped +19% — multi-staging fattened the high-scoring tail (max spikes to ~180k, a
+  3072 game, more often) but **3072% stayed ~0.0%** (0.1% blips). It makes the mid-game more
+  efficient; it does **not** crack the 3072 barrier. Still far from MS-TD's 6144 @ 7.83%.
+- **The two boundaries tie (~28k), and it's NOT the top stage doing the work.** B's ≥3072 stage
+  got only 82k updates (starved — the chicken-and-egg: can't reach 3072 to learn to reach 3072),
+  yet B ≈ A whose ≥1536 stage got 363M. So the whole +19% comes from **stages 0/1 specialising**
+  (opening + mid), not from an endgame net. Feeding the top stage more didn't help.
+- **Takeaway / next:** multi-staging is real and worth keeping (best learned agent so far, 28k),
+  but greedy multi-stage TD still can't reach the endgame. Cracking 3072+ likely needs one of:
+  (a) **more/finer stages** in the mid-game where the gain lives; (b) **multi-stage × search** —
+  use the per-stage nets as expectimax leaves (T3 redux, now each leaf is phase-calibrated);
+  (c) a **curriculum** that seeds the endgame stage with data (e.g. start some self-play games
+  from high-tile boards) to break the starvation. (b) is the most promising — the search already
+  reaches 6144 21% of the time, and a phase-calibrated leaf is exactly what T3 lacked.
 
 **Success = greedy mean clears T7's 23,507 and/or 3072% goes non-zero.** If T10 works, the same
 per-stage nets also become the expectimax leaf worth re-testing (T3 redux) now that each is
@@ -514,6 +535,19 @@ canvas at a mid-game score — this is how a raw 67,428 with no real settlement 
 looked like the best), and a large restart budget (300) so a long ~2000-move game can
 reach its real "Out of moves!" through the ~15-plies-per-wedge WebGL stalls. Replays +
 settlement screenshots under `results/replays/{threesjs,threesgame}/` (gitignored).
+
+**Scaling threesgame to the 240-core box** (chasing the 12288 = two 6144, a ~1.1% event even
+at depth-6, so ~90 games are needed; `scripts/cloud_threesgame.sh`, depth-6, many parallel
+headless sessions). The box has **no GPU**, so Chrome software-renders the WebGL through
+SwiftShader — which surfaced three harness bugs, each fixed: (1) `_pkill_profile` matched the
+supervisor's own `--profile` argv and SIGKILL'd itself the instant a session started (match
+Chrome's `user-data-dir=` instead); (2) at 64 sessions the renderer starved — a pressed move
+took longer than the driver's 3.6s "did it register?" poll, so *every* move looked un-registered
+and the whole grind thrashed (1554 wedges, games capped at 1536); raising the poll to 40s and
+cutting to 16 sessions fixed it (0 moves/30s → 215 moves/min); (3) a fresh game read before its
+tiles spawned recorded a 0-move score=0 dud, burning the slot (now retried). After the fixes a
+16-session run reached **197,775 / 3072** — real depth-6 play on a GPU-less box, matching the
+Mac's 200,142/3072 — though 3072 is still only ~1 game in 15 there, so the 12288 hunt continues.
 
 threesjs.io needed a different fix — one that took it from 9,993 to **62,403** (6x).
 Its board is read by an engine-in-the-loop tracker that stays pixel-perfect (a per-move
