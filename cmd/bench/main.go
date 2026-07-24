@@ -136,6 +136,14 @@ func main() {
 	ai.ParallelRoot = !*seqSearch
 	utils.InitGameScoreTable()
 
+	// Guard a silent footgun: only the bitboard search leaf consults ai.LeafEval; the slice
+	// path (-bb=false) always uses the hand heuristic. So a learned-leaf run with -bb=false
+	// would quietly evaluate the HAND heuristic instead of the net and look like a null result.
+	if (*agentKind == "ntuple-search" || *agentKind == "ntuple-ms-search") && !*bb {
+		fmt.Fprintln(os.Stderr, "ntuple-search / ntuple-ms-search need -bb (the slice leaf ignores the learned value); re-run with -bb")
+		os.Exit(1)
+	}
+
 	// Load the learned value function for the N-tuple agents. ntuple-search plugs
 	// it into the expectimax leaves via ai.LeafEval; ntuple-greedy uses it directly.
 	var net *ntuple.Network
