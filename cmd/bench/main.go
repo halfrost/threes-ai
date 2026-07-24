@@ -76,6 +76,43 @@ func playGame(seed int64, maxMoves int, bb, deckAware, record bool, agentKind st
 	}, rec
 }
 
+// stageOf maps a packed board to a stage by its max tile index (mirrors cmd/train-ms):
+// stage i is entered once the max index reaches bounds[i-1]. Used by ntuple-ms-search to
+// dispatch each expectimax leaf to the value net trained for that game phase.
+func stageOf(board uint64, bounds []int) int {
+	mi := 0
+	for c := 0; c < 16; c++ {
+		if v := int((board >> (uint(c) * 4)) & 0xF); v > mi {
+			mi = v
+		}
+	}
+	s := 0
+	for _, b := range bounds {
+		if mi >= b {
+			s++
+		} else {
+			break
+		}
+	}
+	return s
+}
+
+func parseBounds(s string) []int {
+	var b []int
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p == "" {
+			continue
+		}
+		v, err := strconv.Atoi(p)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bad -stages %q: %v\n", s, err)
+			os.Exit(1)
+		}
+		b = append(b, v)
+	}
+	return b
+}
+
 func main() {
 	n := flag.Int("n", 100, "number of games")
 	seed := flag.Int64("seed", 1, "base seed (game i uses seed+i)")
@@ -89,8 +126,10 @@ func main() {
 	label := flag.String("label", "", "optional label for this run in the summary log")
 	record := flag.String("record", "", "if set, keep the single highest-score replay in this dir (record_<score>.json), discard the rest")
 	seqSearch := flag.Bool("seqsearch", false, "run each game's search sequentially (best throughput on many cores; parallelise across games instead)")
-	agentKind := flag.String("agent", "expectimax", "agent: expectimax | ntuple-greedy | ntuple-search")
-	model := flag.String("model", "", "N-tuple model file (required for ntuple-* agents)")
+	agentKind := flag.String("agent", "expectimax", "agent: expectimax | ntuple-greedy | ntuple-search | ntuple-ms-search")
+	model := flag.String("model", "", "N-tuple model file (required for ntuple-greedy / ntuple-search)")
+	models := flag.String("models", "", "comma-sep per-stage model files for ntuple-ms-search (T10 stage nets, in stage order)")
+	stagesFlag := flag.String("stages", "10,13", "max-tile index boundaries for ntuple-ms-search (must match the -stages the nets were trained with)")
 	flag.Parse()
 
 	ai.MaxDepthCap = *depthCap
@@ -114,6 +153,34 @@ func main() {
 			ai.LeafEval = net.Value
 		}
 		fmt.Printf("Agent %s using model %s (%d tuples)\n", *agentKind, *model, len(net.Tuples))
+	}
+
+	// T11 — multi-stage leaf: load one net per game phase (the T10 stage nets) and dispatch
+	// each expectimax leaf to the net trained for that phase. This is T3 done right: T3's
+	// single greedy-trained leaf lost to the hand heuristic (gap widening with depth) because
+	// it was phase-miscalibrated; each stage net here is calibrated to its own regime.
+	if *agentKind == "ntuple-ms-search" {
+		paths := strings.Split(*models, ",")
+		for i := range paths {
+			paths[i] = strings.TrimSpace(paths[i])
+		}
+		bounds := parseBounds(*stagesFlag)
+		if *models == "" || len(paths) != len(bounds)+1 {
+			fmt.Fprintf(os.Stderr, "ntuple-ms-search needs -models with exactly len(stages)+1=%d files (stage order); got %d\n",
+				len(bounds)+1, len(paths))
+			os.Exit(1)
+		}
+		stageNets := make([]*ntuple.Network, len(paths))
+		for i, p := range paths {
+			nt, err := ntuple.Load(p)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "load stage %d model %s: %v\n", i, p, err)
+				os.Exit(1)
+			}
+			stageNets[i] = nt
+		}
+		ai.LeafEval = func(board uint64) float64 { return stageNets[stageOf(board, bounds)].Value(board) }
+		fmt.Printf("Agent ntuple-ms-search: %d stages, bounds %v, models %v\n", len(stageNets), bounds, paths)
 	}
 
 	fmt.Printf("Running %d games, %d workers, base seed %d...\n", *n, *workers, *seed)
