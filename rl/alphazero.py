@@ -68,11 +68,15 @@ def _clone(env, rng):
     return e
 
 
-def _puct(node, c_puct):
+def _puct(node, c_puct, allowed=None):
+    """Pick the child maximising Q + U. `allowed` restricts the choice to the actions that
+    are legal in the CURRENT simulation — see _descend for why that matters."""
     total = sum(node.N.values()) + 1
     sq = math.sqrt(total)
-    best_a, best_u = node.legal[0][0], -1e18
+    best_a, best_u = None, -1e18
     for a, _ in node.legal:
+        if allowed is not None and a not in allowed:
+            continue
         q = node.W[a] / node.N[a] if node.N[a] > 0 else 0.0
         u = q + c_puct * node.P[a] * sq / (1 + node.N[a])
         if u > best_u:
@@ -83,29 +87,58 @@ def _puct(node, c_puct):
 def _descend(root, env, c_puct, rng, max_depth=40):
     """Iterative PUCT descent through the (sampled-chance) tree, using the env's REAL
     step dynamics (spawn = previewed next, then a new next). Returns
-    (path, leaf_env_or_None, reward_sum): leaf_env is None for a terminal/dead leaf."""
+    (path, leaf_env_or_None): leaf_env is None for a terminal/dead leaf.
+
+    A node caches the legal actions and priors of the ONE sampled spawn that created it,
+    but chance means we re-descend it under DIFFERENT spawns, where some of those actions
+    can be illegal. ThreesEnv.step treats an illegal action as a silent no-op (reward 0,
+    board unchanged), so trusting the cache would spin on a dead action, credit it with
+    visits, and poison the statistics. So we re-derive legality from the live sim at every
+    step and only ever choose among those."""
     node = root
     sim = _clone(env, rng)
     path = []          # (node, action, reward_at_edge)
-    for depth in range(max_depth + 1):
+    for _ in range(max_depth + 1):
         if not node.legal:
             return path, None
-        a = _puct(node, c_puct)
+        legal_now = sim.legal_actions()
+        if not legal_now:
+            return path, None
+        a = _puct(node, c_puct, allowed=set(legal_now))
+        if a is None:      # nothing this node knows about is legal in this spawn
+            return path, None
         _, reward, done, _ = sim.step(a)
         path.append((node, a, reward))
         if done:
             return path, None
-        if a not in node.children:      # unexpanded edge -> this is the leaf
+        child = node.children.get(a, "unexpanded")
+        if child == "unexpanded":       # unexpanded edge -> this is the leaf
             return path, sim
-        node = node.children[a]
+        if child is None:               # expanded to a terminal (no legal actions) node
+            return path, None
+        node = child
     return path, None                    # depth cap
 
 
 def _backup(path, leaf_value):
-    """Back up return-to-go: value at each edge = rewards from it to the leaf + V(leaf)."""
+    """Back up return-to-go in the NET'S OWN UNITS: rewards are divided by VALUE_SCALE
+    before being accumulated onto V(leaf).
+
+    This division is load-bearing. Raw Threes rewards are 3..3^13 while the value head is
+    tanh-bounded to [-1,1], so accumulating `r + v` puts Q = W/N in the hundreds while the
+    PUCT exploration term is capped at ~c_puct (1.5). One visit then makes an edge's Q
+    unbeatable by any unvisited sibling, every simulation re-descends the same branch, the
+    root visit vector comes out one-hot regardless of --sims, and the policy is trained on
+    its own argmax — search does nothing and the distilled warm start is arithmetically
+    invisible. Dividing by VALUE_SCALE puts Q in roughly the same [-1,1] range as V, which
+    is what makes c_puct a meaningful exploration weight.
+
+    (V approximates tanh(RTG/VALUE_SCALE) and we accumulate RTG/VALUE_SCALE; for the usual
+    range — a 30k-point game is 0.15 — tanh(x) ~= x, so the two agree to within ~1%. The
+    tanh only compresses the rare huge returns, which is a safe, conservative bias.)"""
     v = leaf_value
     for node, a, r in reversed(path):
-        v = r + v
+        v = r / VALUE_SCALE + v
         node.N[a] += 1
         node.W[a] += v
 
@@ -118,10 +151,17 @@ def _net_batch(net, device, obs_list):
     return np.exp(logp.cpu().numpy()), v.cpu().numpy()
 
 
-def batched_selfplay(net, device, n_games, sims, c_puct, seed0, max_moves=20000):
+def batched_selfplay(net, device, n_games, sims, c_puct, seed0, max_moves=20000,
+                     dirichlet_alpha=0.6, dirichlet_frac=0.25, temp_moves=30):
     """Play n_games in parallel; every simulation's leaves (one per active game) are
     evaluated in ONE batched forward pass. Returns (data, finals) where data is a list
-    of (obs, pi, score_at_state) and finals is the per-game final score."""
+    of (obs, pi, score_at_state) and finals is the per-game final score.
+
+    All randomness comes from a LOCAL rng seeded off seed0 — never the global np.random —
+    so a run is reproducible from its seed alone. temp_moves is the number of opening moves
+    sampled from the visit distribution (exploration); after that we play the argmax, which
+    is what actually banks score in a game this long."""
+    rng = np.random.default_rng(seed0)
     envs = [ThreesEnv() for _ in range(n_games)]
     for i, e in enumerate(envs):
         e.reset(seed=seed0 + i)
@@ -134,12 +174,24 @@ def batched_selfplay(net, device, n_games, sims, c_puct, seed0, max_moves=20000)
     sim_ctr = 0
 
     while active:
-        # (1) roots for all active games — one batched eval of the current states
+        # (1) roots for all active games — one batched eval of the current states.
+        # Two things the raw net output needs before it can drive search:
+        #   * RENORMALISE over the legal actions. The net's softmax spreads mass over all 4;
+        #     dropping the illegal ones leaves priors summing to <1, which silently weakens
+        #     the exploration term (it is linear in P) by however much mass was discarded.
+        #   * DIRICHLET NOISE at the root (standard AlphaZero). A distilled net starts sharp,
+        #     and without noise self-play just re-derives its own priors — no exploration
+        #     pressure, so it can never discover anything the teacher did not already do.
         probs, _ = _net_batch(net, device, [encode(envs[i].board, envs[i].next) for i in active])
         roots = {}
         for k, i in enumerate(active):
             legal = envs[i].legal_actions()
-            roots[i] = Node([(a, probs[k][a]) for a in legal])
+            pri = np.array([max(float(probs[k][a]), 1e-8) for a in legal], dtype=np.float64)
+            pri /= pri.sum()
+            if dirichlet_frac > 0 and len(legal) > 1:
+                noise = rng.dirichlet([dirichlet_alpha] * len(legal))
+                pri = (1 - dirichlet_frac) * pri + dirichlet_frac * noise
+            roots[i] = Node(list(zip(legal, pri)))
 
         # (2) run the simulations, batching leaf evals across games
         for _ in range(sims):
@@ -168,7 +220,11 @@ def batched_selfplay(net, device, n_games, sims, c_puct, seed0, max_moves=20000)
                 continue
             pi = visits / visits.sum()
             trajs[i].append((encode(envs[i].board, envs[i].next), pi.astype(np.float32), envs[i].score()))
-            envs[i].step(int(np.random.choice(4, p=pi)))
+            # Sample only the opening (exploration); then play the argmax. Sampling a
+            # visit-proportional move for all ~500 moves keeps throwing away banked score
+            # on a game where one bad late move ends the run.
+            mv = int(rng.choice(4, p=pi)) if envs[i].moves < temp_moves else int(pi.argmax())
+            envs[i].step(mv)
             if envs[i].moves < max_moves and envs[i].legal_actions():
                 nxt_active.append(i)
             else:
