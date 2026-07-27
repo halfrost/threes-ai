@@ -509,6 +509,45 @@ baselines still run):
 per-stage nets also become the expectimax leaf worth re-testing (T3 redux) now that each is
 calibrated to its phase.
 
+### ★ T11 — the T10 stage nets as the expectimax leaf — DONE. **Decisive negative: worse, not better.**
+`cmd/bench -agent ntuple-ms-search` (dispatches each leaf to its phase's net), both T10 variants,
+deck-aware N=1000 at d3/4/5 vs the single-net(T7 30M) leaf and the hand heuristic on identical
+seeds. Logs: `docs/runs/eval_ms_search_t11_s10{12,13}.log`.
+
+| | d3 3072/6144 | d4 3072/6144 | d5 3072/6144 |
+|---|---|---|---|
+| **ms-search** (s1012, 10,12) | 27.5% / 0.4% | 34.8% / 1.3% | 40.4% / 1.9% |
+| **ms-search** (s1013, 10,13) | 24.7% / 0.4% | 32.5% / 1.4% | 38.6% / 3.1% |
+| single-net leaf (T7 30M) | 37.0% / 0.6% | 44.5% / 2.2% | 53.6% / 4.7% |
+| **hand heuristic** (the bar) | 28.8% / 1.3% | **51.9% / 4.6%** | **69.8% / 15.2%** |
+
+- **The multi-stage leaf is WORSE than BOTH baselines at every depth** — below the single-net leaf
+  AND far below the hand heuristic. The exact opposite of the hope. Multi-staging *helped* greedy
+  play (T10, +19%) but *hurts* as a search leaf.
+- **Why (the real lesson): multi-staging breaks the one thing search needs — a globally consistent
+  value scale.** Greedy move choice compares only the 4 afterstates of the *current* board, which
+  almost always sit in the *same* stage, so a per-stage net is fine (and specialises well → T10's
+  +19%). But an expectimax leaf set spans *many* stages at once (deep lines that reach a higher
+  tile cross a boundary), and each stage net is an *independent* function on its own scale — so
+  comparing a stage-1 leaf against a stage-2 leaf is comparing apples to oranges. The boundary
+  discontinuities mislead the search. (The starved high-stage nets — s1013's ≥3072 at 82k updates
+  — make the deep leaves worse still.) A better greedy player is not a better search leaf; here it
+  is actively a worse one.
+- **This closes the learned-value-as-leaf line for good.** T3: single greedy net loses to the hand
+  heuristic, gap widening with depth. T11: multi-staging it makes it worse. The hand-tuned heuristic
+  remains the best expectimax leaf, and the project's strength is the **search** (deck-aware
+  expectimax: 6144 @ 21%, 12288 @ 1.1%), not any learned value.
+
+### N-tuple arc (T1–T11) — the settled conclusion for the paper
+Across eleven experiments the learned N-tuple value function was pushed every way it can be:
+more games (T7), more capacity (T8), leaf-alignment (T9), multi-staging for greedy (T10, the one
+win: 23.5k→28k), and multi-staging as a search leaf (T11). Net finding: **greedy N-tuple caps
+around 28k and never reaches the endgame (3072 ≈ 0%), and as an expectimax leaf a learned value —
+single or multi-stage — never beats the hand heuristic.** For this deck-aware, high-variance 4×4
+game, *search with a good hand heuristic* dominates *learned value*, both as a standalone policy
+and as a leaf. That is the paper's spine; the RL baselines (DQN/PPO/AlphaZero, Phase 3) are the
+final leg of the same comparison.
+
 ## 6. Deployment / records (Phase 4 — live web scoring)
 
 The strong deck-aware expectimax (`cmd/moveserver`, depth-cap 5) driving real web
