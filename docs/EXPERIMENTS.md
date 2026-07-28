@@ -827,3 +827,36 @@ which would have stopped at that instant. Everything below 12288 is unaffected, 
 deployments independently validate the scoring (engine score == on-screen score, desync 0, up to
 3072 tiles and 200k points). Fixing this would change the depth-5..9 headline numbers, so it is
 recorded here rather than silently patched.
+
+### ⚠️ Deployment caveat — every live score before 2026-07-28 was played with a broken deck signal
+
+All web/Mac/mobile drivers share `deploy/common.py DeckTracker`, which reconstructs the
+remaining 1/2/3 bag so the search can play deck-aware on a device where the bag isn't
+observable. It started at a full `[4,4,4]` — but Threes deals the **nine opening tiles out of
+that same 12-card bag** (`engine/sim.go`: `NewGame` → `placeInitial(9)` → `drawBag()`), so it
+was phase-shifted by nine draws for every game ever played.
+
+Verified against the engine's `DeckCounts()` over 7,618 plies / 200 games, and end-to-end on
+40 paired seeds at depth 3:
+
+| deck signal fed to the search | L1 error | mean score | 3072% |
+|---|---|---|---|
+| ground truth (`Game.DeckCounts`) | 0 | 118,929 | 25.0% |
+| **unseeded tracker (what shipped)** | **4.62 cards, 100% of plies wrong, 12% negative** | **25,769** | **0.0%** |
+| seeded from the opening board (the fix) | **0.00** | 118,929 | 25.0% |
+| no deck at all (board approximation) | n/a | 121,105 | 35.0% |
+
+- The fix is **exact**: seeded, the tracker reproduces `DeckCounts` cell-for-cell, so its games
+  are bit-identical to ground truth.
+- The bug cost **4.6×** and took the 3072 rate to **zero** — and it was **worse than sending no
+  deck at all**, because an absent signal makes the search fall back to a sound approximation
+  while a wrong one is trusted.
+- This is the true cause of the ~29k / ~500-move / 768-tile signature in every deployment,
+  including the Mac app's 30,285 / 768 (same tracker, no browser involved). The doubled key
+  presses fixed alongside it accounted for only ~5%.
+
+**Consequence for §6:** the live scores recorded there (threesjs 62,403; threesgame 200,142;
+Mac 30,285; the cloud grind's 197,775) were all produced by a crippled agent, and **substantially
+understate** what the same search does. They stand as *what was actually achieved on the live
+sites*, but they are not measurements of the agent's strength — §0's offline table is. Re-runs
+with the fixed tracker should be recorded separately.

@@ -365,8 +365,75 @@ is truly lost, and add a recovery mechanism only if the data showed one was need
 ply-log audit should have been written the day the stall was first diagnosed — with it,
 the re-press would have been caught on its first run instead of after several grinds.
 
+## Part 7 — Worse than useless: a deck signal that was wrong on every single ply
+
+Part 6's doubled key presses were real, but they were only ~5% of the damage. Removing them
+barely moved the needle, which was the clue that something bigger was wrong.
+
+**The bug is one line that was never written.** `DeckTracker` (deploy/common.py) starts at a
+full bag, `[4,4,4]`. But Threes deals the **nine opening tiles out of that same 12-card bag**
+(`engine/sim.go`: `NewGame` → `placeInitial(9)` → `drawBag()`), so when the driver takes its
+first reading only **three** cards remain. The tracker is therefore phase-shifted by nine draws
+**for the entire game**: its "reset every 12 observed tiles" never lines up with the real
+reshuffle, its counting window straddles two bags, a value can be seen more than four times, and
+`4 - drawn` goes **negative** — which is then handed to the search as its candidate distribution.
+
+Measured against the engine's own `DeckCounts()` over 7,618 plies of 200 games:
+
+| tracker | mean L1 error | plies wrong | plies negative |
+| --- | --- | --- | --- |
+| unseeded `[4,4,4]` (shipped) | 4.62 cards | **100.0%** | 12.0% |
+| seeded from the opening board | **0.00** | **0.0%** | 0.0% |
+
+And end-to-end, playing real depth-3 games on identical seeds with each signal:
+
+```text
+deck signal                      mean     median   3072%   1536%
+truth (engine DeckCounts)      118,929    86,334   25.0%   77.5%
+UNSEEDED tracker (the bug)      25,769    24,447    0.0%   10.0%
+SEEDED tracker (the fix)       118,929    86,334   25.0%   77.5%   <- identical to truth
+no deck at all (board approx)  121,105    89,364   35.0%   80.0%
+```
+
+Three things worth staring at:
+
+1. **The seeded tracker reproduces ground truth exactly** — same mean, same median, same tile
+   rates, because it is now the same function. That is the validation you want for a fix.
+2. **The bug cost 4.6×** (25,769 vs 118,929) and took the 3072 rate from 25% to **zero**.
+3. **It was worse than sending no deck at all** (25,769 vs 121,105). This is the part that makes
+   it so damaging: an *absent* signal makes the search fall back to a sound approximation, while
+   a *confidently wrong* signal is trusted. Never send a low-confidence signal to something that
+   will trust it — omit it.
+
+The field signature this produced — ~29,000 points, ~500 moves, a 768 tile, 1 game in 98
+reaching 3072 where depth-6 reaches it in 73.9% — appeared in **every** deployment we ever ran:
+the cloud grind, and the Mac app's 30,285/768 "record", which shares the same tracker and has
+neither a browser wedge nor a re-press. We spent a long time hunting browser-side explanations
+for a number that was wrong before it ever reached the browser.
+
+**Fix:** seed the tracker with the opening board (`seed_from_board`), clamp `remaining()` at
+zero, and — because a single ply lost in the supervisor's SIGKILL window de-phases the bag
+permanently — record the game's own move counter in every ply so a resume can detect the gap and
+**stop sending the deck entirely** for the rest of that game. (A correctly-seeded tracker that
+misses just 0.3% of draws still loses ~69% of the score, so the fallback is not optional.)
+
+**The lesson we keep re-learning:** the search is only as good as what you tell it, and a wrong
+input is invisible — every component (the reader, the search, the actuator) looked healthy in
+isolation, and the only thing that exposed it was **checking our derived signal against the
+engine's own ground truth**, ply by ply.
+
 ## One-line lessons
 
+- **A confidently wrong input beats an absent one — for the worse.** Omitting the deck made
+  the search fall back to a sound approximation (121k); sending a *wrong* deck it trusted
+  scored 26k. If you cannot compute a signal accurately, **don't send it**.
+- **Check every derived signal against ground truth, ply by ply.** Our deck tracker was
+  wrong on 100% of plies for the entire project and nothing surfaced it — not the reader,
+  not the search, not the score. Diffing it against the engine's own `DeckCounts()` took
+  minutes and would have saved weeks.
+- **When you reconstruct hidden state, ask what happened *before* you started watching.**
+  The bag was already 9 cards down when the driver took its first look; assuming a fresh
+  start put it permanently out of phase.
 - **The dangerous automation bugs are the ones that don't throw.** A crash costs you an
   hour; a driver that silently plays *slightly different moves than you chose* costs you
   every run until someone audits the actions, because every component looks healthy.
