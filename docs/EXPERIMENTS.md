@@ -670,3 +670,160 @@ the four bugs it surfaced) is in [`WEB_SCORING_WARSTORIES.md`](WEB_SCORING_WARST
   — the game persisted itself to slot.0, so it resumes the exact in-progress board
   (a full replay is assembled from a JSONL move log across restarts). The 23,634 game
   took 47 relaunches through 22 wedges; 11/407 replay steps show a one-ply seam.
+
+## 7. Theoretical maximum score (analysis, not an experiment)
+
+How far is our record from the ceiling? The board is fixed at 16 cells, and — as the
+question that prompted this puts it — **the bigger the tiles you accumulate, the more cells
+they occupy and the sooner you jam**. That intuition has an exact form, derived below.
+Two rule regimes are computed, because **our engine and the real game differ at the very top**
+(see the divergence note at the end).
+
+### 7.1 Scoring and the "3-unit" abstraction
+`engine/score.go`: a board scores **`Σ 3^(index-2)`** over tiles of index ≥ 3, i.e. score is a
+function of the **current board**, not of accumulated merge rewards. Tiles 1 and 2 score 0.
+
+| index | 3 | 4 | … | 12 | 13 | 14 | 15 |
+|---|---|---|---|---|---|---|---|
+| value | 3 | 6 | … | 1536 | 3072 | 6144 | 12288 |
+| score | 3 | 9 | … | 59,049 | 177,147 | 531,441 | **1,594,323** |
+
+Write **`w = 2^(index-3)`** = how many 3s a tile contains (3 → w=1, 12288 → w=2¹²). Merging
+conserves w, so w only ever concentrates. Since score = 3·w^log₂3 is *convex* in w,
+concentration always pays — the maximum board is the one holding the largest tiles it can.
+
+### 7.2 The space constraint (the formal version of "big tiles crowd the board")
+Let **M(n)** = the largest w buildable with n free cells. To double a tile you must **park one
+copy in a cell** and rebuild a second copy in what remains, then merge:
+
+> **M(n) = 2·M(n−1)**
+
+Base case = whatever a *single* free cell can receive from a spawn:
+- **without bonus tiles**: the bag is four 1s / four 2s / four 3s, so a **3** can spawn directly → `M(1) = 2⁰`
+- **with bonus tiles** (`engine/sim.go`: once max ≥ 48, p = 1/21, uniform over indices 4 … maxIndex−3):
+  a tile of **maxValue/8** can spawn directly → `M(1) = 2^(maxIndex−3−3)`
+
+Now order the final board's tiles largest-first. When the j-th is built, j−1 are already parked,
+leaving 17−j cells:
+
+> **w_j ≤ M(17−j)** ← this is exactly "each big tile you keep steals space from the next one"
+
+### 7.3 Scenario 1 — 12288 does NOT end the game; play until the board jams
+(This is what **our engine** implements: `Over()` only tests "no move changes the board".)
+
+Extra constraint, and it is the binding one — a quirk of the 4-bit representation
+(`engine/bitboard.go mergeVal`, mirrored in `gameboard.MakeMove`):
+
+```go
+if a == b && a >= 3 {
+    if a != 15 { return a + 1, true }
+    return 15, true          // two 12288s "merge" into ONE 12288 — a tile is destroyed
+}
+```
+
+This **still changes the board**, so it is a legal move ⇒ on a *jammed* board **no two 12288s may
+be adjacent**. The 4×4 grid graph is bipartite with parts 8/8 and has a perfect matching, so by
+König its maximum independent set is **8** ⇒ **at most eight 12288s**.
+
+**With bonus** (maxIndex = 15 ⇒ bonus up to index 12 = 1536 ⇒ M(1) = 2⁹, w capped at 2¹²):
+`M(1)=2⁹, M(2)=2¹⁰, M(3)=2¹¹, M(n≥4)=2¹²`. So w_j = 2¹² for j ≤ 13 — but adjacency caps the
+12288s at 8, and j=14/15/16 fall to 2¹¹/2¹⁰/2⁹:
+
+```
+board = {12288 ×8, 6144 ×6, 3072, 1536}
+score = 8·3¹³ + 6·3¹² + 3¹¹ + 3¹⁰
+      = 12,754,584 + 3,188,646 + 177,147 + 59,049
+      = 16,179,426
+```
+
+```
+12288  6144 12288  6144      the eight 12288s sit on one checkerboard colour class;
+ 3072 12288  6144 12288      the other class holds six 6144s, the 3072 and the 1536.
+12288  6144 12288  6144      Verified with our own code: gameboard.MakeMove returns
+ 1536 12288  6144 12288      changeNum==0 in all four directions (genuinely jammed),
+                             and engine.ScoreBB returns exactly 16,179,426.
+```
+
+**Without bonus** (M(1)=2⁰ ⇒ w_j = min(2^(16−j), 2¹²), so only j ≤ 4 reach 12288):
+
+```
+board = {12288 ×4, 6144, 3072, 1536, 768, 384, 192, 96, 48, 24, 12, 6, 3}
+score = 4·3¹³ + Σ_{i=1..12} 3^i = 6,377,292 + 797,160 = 7,174,452
+```
+
+### 7.4 Scenario 2 — creating 12288 ends the game immediately (the REAL rule)
+Then no 12288 can ever be *parked*: before the final merge the board's max is 6144 (index 14),
+so bonus tops out at index 11 = 768 ⇒ **M(1) = 2⁸**, and w is capped at 2¹¹ (6144).
+`M(1)=2⁸, M(2)=2⁹, M(3)=2¹⁰, M(n≥4)=2¹¹` ⇒ w_j = 2¹¹ for j ≤ 13, then 2¹⁰/2⁹/2⁸.
+
+Note the board here need **not** be jammed — we *want* a legal merge — so the independent-set
+constraint of §7.3 does not apply and 6144s may sit adjacent.
+
+```
+just before the last move:  {6144 ×13, 3072, 1536, 768}          (full board)
+merge two adjacent 6144s →  12288 appears → GAME ENDS, points totalled as usual
+final board:                {12288, 6144 ×11, 3072, 1536, 768}   (15 tiles)
+score = 3¹³ + 11·3¹² + 3¹¹ + 3¹⁰ + 3⁹
+      = 1,594,323 + 5,845,851 + 177,147 + 59,049 + 19,683
+      = 7,696,053
+```
+
+**Without bonus** (M(1)=2⁰ ⇒ w_j = min(2^(16−j), 2¹¹), so j ≤ 5 reach 6144):
+
+```
+before:  {6144 ×5, 3072, 1536, 768, 384, 192, 96, 48, 24, 12, 6, 3}
+final:   {12288, 6144 ×3, 3072, 1536, …, 3}
+score = 3¹³ + 3·3¹² + Σ_{i=1..11} 3^i = 1,594,323 + 1,594,323 + 265,719 = 3,454,365
+```
+
+### 7.5 Results, and where we stand
+
+| regime | bonus tiles | theoretical max | our record 2,161,704 is |
+|---|---|---|---|
+| **1 — no 12288 ending, play to jam** (our engine) | yes | **16,179,426** | 13.4% |
+| 1 — same, ignoring bonus tiles | no | 7,174,452 | 30.1% |
+| **2 — 12288 ends the game** (real game) | yes | **7,696,053** | **28.1%** |
+| 2 — same, ignoring bonus tiles | no | 3,454,365 | 62.6% |
+
+A single 12288 alone is worth 1,594,323 — so **one 12288 plus a decent board is already ~20–30%
+of the ceiling**, which is why our 2,161,704 game (a 12288 with a 6144 still on the board) sits
+where it does.
+
+**These are UPPER BOUNDS, not achieved maxima.** §7.2's recursion bounds *space* only; it ignores
+geometry (tiles slide whole lanes, you cannot place a tile in an arbitrary cell), the one-merge-
+per-lane-per-move rule, and the astronomically small probability of the required spawn sequence
+(the maximizing board's own last ply needs a 1/189 bonus spawn). Scenario 1's number was
+cross-checked by three independent derivations plus adversarial verification, including a proof
+that the tempting `{12288 ×8, 6144 ×7, 1536}` (16,533,720) is genuinely **infeasible**: creating a
+15th index-≥14 tile would require 17 simultaneously-occupied cells. Scenario 2 is derived the same
+way but has not had the same adversarial treatment.
+
+### 7.6 ⚠️ Our engine diverges from the real game at the very top
+Confirmed from public sources — the real game **ends the instant 12288 is created**:
+
+> "There is also a 13th character that is unlocked when two 6,144 tiles are combined; this
+> character is marked by a triangle rather than the number 12,288. **When this character is
+> revealed, the game ends immediately even if the player has moves available, and points are
+> totaled as usual.**" — [Wikipedia](https://en.wikipedia.org/wiki/Threes)
+> (see also [AV Club, "Hold the phone—Threes! has an ending?"](https://www.avclub.com/hold-the-phone-threes-has-an-ending-1798263214))
+
+So **12288 is the mathematical end of the game — there is no 24576** — and there is **no documented
+score cap**; the ceiling is entirely implied by that ending rule.
+
+| | real game | our `engine/` |
+|---|---|---|
+| a 12288 is created | game ends immediately | keeps playing until jammed |
+| two 12288s adjacent | cannot happen | "merge" into one, destroying 1,594,323 points |
+
+The 4-bit ceiling is not unique to us — [nneonneo's Threes AI](https://github.com/nneonneo/threes-ai/blob/master/threes.h) has the identical limit
+(*"The maximum possible board value that can be supported is 12288 (=15) … The highest tile in
+the game appears to be 6144"*), and its `INITIAL_DECK (0x00040404) // four of each` and
+`HIGH_CARD_FREQ 21` match our bag and 1/21 bonus rate exactly — so our **generation** rules are
+right; only the **terminal** rule differs.
+
+**Impact on our numbers (not yet corrected):** in the ~1.1% of games that reach 12288, our engine
+keeps playing afterwards, so those games' scores may be **inflated** relative to the real game,
+which would have stopped at that instant. Everything below 12288 is unaffected, and our web
+deployments independently validate the scoring (engine score == on-screen score, desync 0, up to
+3072 tiles and 200k points). Fixing this would change the depth-5..9 headline numbers, so it is
+recorded here rather than silently patched.
