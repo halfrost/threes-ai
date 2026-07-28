@@ -308,8 +308,76 @@ fixes — is in [`MAC_DEBUGGING_LOG.md`](MAC_DEBUGGING_LOG.md); highlights below
   one point catches a tile's dark monster-mouth and false-fires) and a **whole-board
   occupancy jump** (a real move changes 1–2 cells; a screen flip changes ~14).
 
+## Part 6 — The silent one: a "fix" that quietly played the game for us
+
+Every bug above announced itself — a hang, a black screenshot, a wrong number. This one
+didn't, and it was the most expensive.
+
+**Symptom (subtle):** on the 240-core box, 24 headless sessions ran beautifully. Moves
+flowed at ~215/min, games reached natural game-overs, scores accumulated, replays saved,
+no errors anywhere. But the *results* were wrong: of 98 completed games, **1 reached the
+3072 tile — where the same deck-aware depth-6 search reaches it in 73.9% of games
+offline**. Typical game: ~500 moves, ~29,000 points, 768 tile. That is depth-1/2 quality
+(cf. depth-1 mean 23,872). Everything was healthy in isolation: the moveserver really was
+searching at depth 6 (3.06 s/move, verified), the board came from localStorage so it was
+exact, the deck was tracked. Nothing in any log looked wrong.
+
+**Cause: our own driver was inserting moves the search never chose.** Earlier we had fixed
+a total stall on this box (0 moves in 30 s across all sessions) whose real cause was that
+the driver waited only ~3.6 s for a pressed move to register, while software-rendered
+WebGL needs far longer. The fix that worked was widening that window to 40 s. But *bundled
+into the same commit* was a speculative extra: **periodically re-press the arrow key "in
+case the first press was dropped under load"** — a hypothesis that was never tested.
+
+A re-press cannot distinguish two states:
+
+| what actually happened | how often | what the re-press does |
+| --- | --- | --- |
+| the game accepted the move but hasn't persisted it yet | ~always | **applies a second, unchosen move** |
+| the keypress was genuinely lost | ~never | recovers it (the intended case) |
+
+And the second move is worse than a random move: it applies the search's choice for board
+*B* to the post-spawn board *B′* that the search never evaluated — precisely the kind of
+move that breaks the monotone staircase the whole strategy maintains.
+
+**How we caught it: replay the log through the engine.** The driver records
+`{board_before, next, move}` per ply, so consecutive records must satisfy
+`apply_move(bᵢ, mᵢ) + exactly one spawn == bᵢ₊₁`. `scripts/check_ply_log.py` checks that
+over every recorded ply and classifies the failures. Over **46,110 plies**:
+
+```text
+OK       45,173  (98.2%)
+DOUBLE      678  ( 1.5%)   <- two moves applied where one was chosen
+LOST          5  ( 0.01%)  <- a press that genuinely did nothing
+DESYNC      157  ( 0.3%)   <- resume seams
+NOSPAWN       0
+```
+
+That table is the whole story: **the re-press was solving a problem 135× rarer than the
+one it created.** 1.5% means an unchosen move roughly every 67 plies — about 15 per game —
+and the games died at half their expected length.
+
+**Fix:** press the key exactly once and simply wait (a slow move still lands); a genuinely
+wedged channel is already caught by the supervisor's stall-timeout. No re-press, ever.
+
+**What we should have done:** ship the wait-window fix alone, *measure* how often a press
+is truly lost, and add a recovery mechanism only if the data showed one was needed. The
+ply-log audit should have been written the day the stall was first diagnosed — with it,
+the re-press would have been caught on its first run instead of after several grinds.
+
 ## One-line lessons
 
+- **The dangerous automation bugs are the ones that don't throw.** A crash costs you an
+  hour; a driver that silently plays *slightly different moves than you chose* costs you
+  every run until someone audits the actions, because every component looks healthy.
+- **Audit actions, not just outcomes**: replay the recorded (state, action) log through
+  the engine and assert each transition is reachable. Cheap to write, and the only thing
+  that can see a "correct-looking" run that is quietly corrupt.
+- **Never ship a speculative fix bundled with a verified one** — you inherit its failure
+  mode with none of its evidence. If a mechanism is a guess, gate it behind a measurement.
+- **A retry needs a way to tell "it failed" from "it hasn't finished yet."** If it can't,
+  it isn't a retry — it's a duplicate action. When the operation is not idempotent (a game
+  move never is), prefer waiting longer over retrying.
 - On a `<canvas>` game, look for a **saved-state side channel** (localStorage /
   IndexedDB) before reaching for OCR — it's often exact and free.
 - Read that side channel from the **browser process (CDP DOMStorage)**, not
