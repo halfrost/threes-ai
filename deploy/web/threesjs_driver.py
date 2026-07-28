@@ -258,6 +258,10 @@ def play(a):
                 pg.wait_for_timeout(500)
             if board is None:
                 rec.finish([[0] * 4 for _ in range(4)]); return 0, 0, rec, 0
+            # The opening tiles were dealt from the same 12-card bag, so count them —
+            # an unseeded tracker is out of phase all game and feeds the search a wrong
+            # (sometimes negative) bag, which is ~5x worse than sending no deck at all.
+            deck.seed_from_board([[VALUE[v] for v in row] for row in board])
             best_tile, desyncs = 0, 0
             for step in range(a.moves):
                 vals = [[VALUE[v] for v in row] for row in board]

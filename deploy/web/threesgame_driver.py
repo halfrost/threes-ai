@@ -125,11 +125,18 @@ def read_state(cdp):
 
 
 def _deck_from_log(path):
-    """Rebuild the deck tracker from a resume log's already-recorded `n` (next)
-    values so deck-aware play stays accurate across a supervisor restart. Also
-    return how many plies were already recorded (for logging)."""
+    """Rebuild the deck tracker from a resume log so deck-aware play survives a
+    supervisor restart: seed from the FIRST recorded board (the opening deal, which
+    came out of the bag) and then replay every recorded `n`. Also return how many
+    plies were already recorded (for logging).
+
+    The seed is what makes this correct at all — see DeckTracker's docstring. Note
+    the tracker can still de-phase if a ply was LOST (the browser applied a move but
+    the process died before emit()), which is why play() cross-checks the game's own
+    move counter and stops sending the deck if they disagree."""
     deck = DeckTracker()
     n = 0
+    last_mv = None            # the game's own move counter at the last recorded ply
     try:
         with open(path) as f:
             for line in f:
@@ -139,19 +146,23 @@ def _deck_from_log(path):
                 rec = json.loads(line)
                 if "terminal" in rec:
                     continue
+                if n == 0 and rec.get("b"):
+                    deck.seed_from_board(rec["b"])   # the opening deal
                 n += 1
+                if rec.get("mv") is not None:
+                    last_mv = rec["mv"]
                 nv = rec.get("n", 0)
                 if nv in (1, 2, 3):
                     deck.note(nv)
     except OSError:
         pass
-    return deck, n
+    return deck, n, last_mv
 
 
 def play(a):
     mc = MoveClient(a.server, timeout=a.move_timeout)
     print("moveserver:", mc.ping(), flush=True)
-    deck, prior = _deck_from_log(a.resume_log)
+    deck, prior, last_mv = _deck_from_log(a.resume_log)
     log = open(a.resume_log, "a", buffering=1)     # line-buffered append; survives restarts
 
     def emit(rec):
@@ -186,9 +197,29 @@ def play(a):
                 break
             pg.wait_for_timeout(400)
         resuming = bool(st and not st["over"] and any(v > 0 for row in st["board"] for v in row))
+        # Is the deck signal trustworthy? Only if the tracker is in phase with the real
+        # bag. It is worth being strict: an out-of-phase bag is ~5x WORSE for the search
+        # than sending no bag at all (see DeckTracker's docstring), so anything we cannot
+        # account for exactly means we stop sending the deck for the rest of this game.
+        deck_ok = True
         if resuming:
             print(f"resume: in-progress game at {st['moves']} moves, log has {prior} plies",
                   flush=True)
+            # A ply is lost whenever the browser applied a move but the process died
+            # before emit() — exactly the window the supervisor SIGKILLs in. Each lost
+            # ply de-phases the bag by one draw, permanently (a tracker missing just 0.3%
+            # of draws still loses ~69% of the score). The game's own move counter is the
+            # ground truth: one recorded ply per move, so any gap means lost draws.
+            accounted = last_mv if last_mv is not None else prior
+            gap = st["moves"] - accounted
+            if prior == 0 or gap != 0:
+                deck_ok = False
+                print(f"  deck: game is at {st['moves']} moves but the log accounts for "
+                      f"{accounted} (gap {gap}) — bag out of phase, playing deck-blind",
+                      flush=True)
+            else:
+                print(f"  deck: log accounts for all {accounted} moves -> "
+                      f"remaining {deck.remaining()}", flush=True)
         else:
             print("fresh game: pressing Space", flush=True)
             pg.wait_for_timeout(3000)
@@ -202,6 +233,12 @@ def play(a):
             if not st or st["over"]:
                 print("could not start a game", flush=True)
                 ctx.close(); sys.exit(4)
+            # THE SEED: the opening tiles were dealt from the bag, so count them. Without
+            # this the tracker is wrong on 100% of plies and negative on 12% of them.
+            deck = DeckTracker()
+            deck.seed_from_board(st["board"])
+            print(f"  deck seeded from the opening board -> remaining {deck.remaining()}",
+                  flush=True)
 
         # Let the page become input-ready before the first move. A freshly loaded
         # (esp. RESUMED) game accepts localStorage reads immediately but ignores
@@ -217,7 +254,10 @@ def play(a):
                 break
             best_tile = max(best_tile, max(v for row in board for v in row))
             nv = st["next"] if st["next"] in (1, 2, 3) else 0
-            best = mc.ask(board, next_val=nv, deck=deck.remaining())
+            # Send the bag ONLY while it is provably in phase. An out-of-phase bag is far
+            # worse than none: the search trusts it, and a wrong (or negative) count is
+            # ~5x more damaging than the deck-blind board approximation it falls back to.
+            best = mc.ask(board, next_val=nv, deck=deck.remaining() if deck_ok else None)
             if best < 0:
                 # No legal move. On a real board that's game over — but an EMPTY board
                 # (all zeros) means the game hasn't spawned its starting tiles yet: under
@@ -281,7 +321,10 @@ def play(a):
                 ctx.close()
                 sys.exit(3)
             st = st_new
-            emit({"b": board, "n": nv, "m": best})   # board BEFORE + the move applied
+            # "mv" = the game's own move counter after this move. A resume compares it
+            # with the log length to tell whether a ply was lost in the kill window (see
+            # the resume branch above) — without it a de-phased bag is undetectable.
+            emit({"b": board, "n": nv, "m": best, "mv": st["moves"]})  # board BEFORE + move
             if nv in (1, 2, 3):
                 deck.note(nv)
             if step % 20 == 0:

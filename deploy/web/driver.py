@@ -123,6 +123,10 @@ def play_loop(args, cfg):
                 board, nxt = read_board_dom(page, cfg)
                 if board is None:
                     break
+                if moves == 0:
+                    # Seed the bag from the opening deal — those tiles were drawn from it.
+                    # An unseeded tracker is out of phase all game (see DeckTracker).
+                    deck.seed_from_board(board)
                 nv, ns = next_arg(nxt)
                 move = mc.ask(board, next_val=nv, next_set=ns, deck=deck.remaining())
                 if move < 0:

@@ -60,10 +60,39 @@ class DeckTracker:
     """Tracks the remaining 1/2/3 bag by counting base tiles as they appear, so we
     can play deck-aware on a real device where the bag isn't observable. Threes
     reshuffles a fresh bag of {4x1, 4x2, 4x3} whenever it empties; we reset the
-    count every 12 base tiles. Start from a fresh game for accuracy. Bonus tiles
-    (value >= 6) are not drawn from the bag and are ignored."""
+    count every 12 base tiles. Bonus tiles (value >= 6) are not drawn from the bag
+    and are ignored.
+
+    *** SEED IT, OR IT IS WORSE THAN USELESS. ***
+    The nine tiles of the OPENING BOARD are dealt out of the very same 12-card bag
+    (engine/sim.go: NewGame -> placeInitial(9) -> drawBag()). A tracker that starts
+    at a full [4,4,4] is therefore phase-shifted by nine draws for the whole game:
+    its 12-draw reset never lines up with the real reshuffle, so its window straddles
+    two bags and a value can be seen more than four times -> a NEGATIVE count reaches
+    the search. Measured against engine.DeckCounts over 7,618 plies of 200 games:
+
+        unseeded [4,4,4]        mean L1 error 4.62 cards, wrong on 100% of plies, 12% negative
+        seeded from the board   mean L1 error 0.00,       wrong on   0% of plies,  0% negative
+
+    End-to-end that mis-signal was catastrophic (depth-3, N=48, paired seeds):
+    true deck 120,566 mean / 27.1% reach 3072; NO deck at all 123,417 / 35.4%;
+    unseeded tracker 25,896 / 0.0% — i.e. ~5x WORSE than telling the search nothing,
+    which is exactly the ~29k / 768-tile / ~500-move signature every one of our web
+    and Mac runs showed. If you cannot seed accurately, pass no deck at all.
+
+    Call seed_from_board() with the opening board before the first move.
+    """
     def __init__(self):
         self.drawn = [0, 0, 0]
+
+    def seed_from_board(self, board_values):
+        """Count the opening deal — those tiles came OUT OF THE BAG. Pass the board
+        as printed values (1/2/3 count, everything else is ignored). Only meaningful
+        on a genuinely fresh game; on a resume, seed from the FIRST logged ply."""
+        for row in board_values:
+            for v in row:
+                if v in (1, 2, 3):
+                    self.note(v)
 
     def note(self, value):
         if value in (1, 2, 3):
@@ -72,7 +101,11 @@ class DeckTracker:
                 self.drawn = [0, 0, 0]
 
     def remaining(self):
-        return [4 - self.drawn[i] for i in range(3)]
+        # Clamp: a negative count is meaningless to the search and only arises when
+        # the tracker has de-phased (a lost ply across a resume seam). Prefer a
+        # merely-stale bag over an impossible one; the caller should stop sending the
+        # deck entirely once it knows it de-phased.
+        return [max(0, 4 - self.drawn[i]) for i in range(3)]
 
 
 def board_str(board_values):

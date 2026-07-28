@@ -41,6 +41,12 @@ def play_one_game(dev, mc, deck, rec, move_delay=0.25, max_moves=4000, dbg=False
         if board_idx is None:
             break
         board = to_values([list(r) for r in board_idx])
+        if step == 0:
+            # Seed the bag from the opening deal: those nine tiles came OUT OF THE BAG,
+            # so a tracker left at a full [4,4,4] is out of phase for the entire game and
+            # feeds the search a wrong (sometimes negative) deck — measurably ~5x worse
+            # than sending no deck at all. See DeckTracker's docstring.
+            deck.seed_from_board(board)
         last_board = board
         best_tile = max(best_tile, max(v for row in board for v in row))
         nset = [VALUE[i] for i in tileset] if tileset else None
