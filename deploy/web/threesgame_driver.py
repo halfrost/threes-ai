@@ -244,11 +244,21 @@ def play(a):
             #      (this is what made moves spuriously "not register").
             # So we poll until NumMoves increments AND the board is stable across two
             # reads (spawn settled). A wedged read just hangs -> supervisor resumes.
+            # NEVER re-press while waiting. A re-press cannot tell "the key was dropped"
+            # from "the game processed the move but hasn't persisted it yet", and on a slow
+            # (software-rendered) box it is overwhelmingly the latter — so the second press
+            # lands as an EXTRA move, applied to the post-spawn board the search never saw.
+            # Measured over 46,110 plies of a 24-session grind: 678 doubled moves (1.5%) vs
+            # 5 genuinely lost presses (0.01%). That 1.5% of unchosen moves is enough to
+            # wreck the monotone structure the search depends on — the grind's games looked
+            # like depth-1/2 play (1/98 games reached 3072, vs 73.9% offline at depth 6)
+            # while every component looked healthy in isolation. Just wait longer instead:
+            # a slow move still lands, and a truly wedged channel is caught by the
+            # supervisor's stall-timeout. (scripts/check_ply_log.py audits this.)
             registered = False
             st_new = None
             poll_iters = max(12, int(a.move_poll_secs / 0.3))
-            repress_every = max(20, poll_iters // 3)   # re-press ~3x over the budget
-            for i in range(poll_iters):            # up to a.move_poll_secs
+            for _ in range(poll_iters):            # up to a.move_poll_secs
                 pg.wait_for_timeout(300)
                 s = read_state(cdp)
                 if not s:
@@ -256,8 +266,6 @@ def play(a):
                 if not registered:
                     if s["moves"] > m0 or s["over"]:
                         registered, st_new = True, s
-                    elif i and i % repress_every == 0:
-                        pg.keyboard.press(ARROW[best])   # first press may have been dropped
                 elif s["over"] or s["board"] == st_new["board"]:
                     st_new = s
                     break
@@ -330,8 +338,9 @@ def main():
                          "process+persist — under N-way CPU contention it blows past a few "
                          "seconds and EVERY move looks like it 'didn't register', stalling the "
                          "whole grind (verified: 16 sessions, 0 moves in 30s). Raise it well "
-                         "above the real per-move latency there (e.g. 30-60). We also re-press "
-                         "the key periodically in case the first press was dropped.")
+                         "above the real per-move latency there (e.g. 30-60). The key is pressed "
+                         "EXACTLY ONCE and we simply wait — never re-press, or a slow-but-fine "
+                         "move gets applied twice (measured: 1.5% doubled vs 0.01% truly lost).")
     a = ap.parse_args()
     play(a)
 
